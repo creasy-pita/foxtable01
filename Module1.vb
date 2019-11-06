@@ -409,7 +409,8 @@ Module Module1
         Dim qxdmChName = public_qxdmChName
         Dim qxmcChName = public_qxmcChName
         Dim smcChName = public_smcChName
-
+        Dim sjdmName = "djdm"
+        Dim stasticCol = 4
         groupFieldExpression = public_currentGroupFieldName
         ' 分组方式 生产环境 直接用 分组字段名  不需要截取前两位  比如不需要 substr(dlbm, 1, 2); 
         '       开发环境 地类编码 字段 分组先用 substr(dlbm, 1, 2)
@@ -440,11 +441,11 @@ Module Module1
         End If
 
         ' 0 xzqbmGroupExpression  1 xzqbmFieldENName 2 groupFieldExpression 3 public_currentGroupFieldName
-        ' 4 totalFieldEnName 5 public_currentLayerSchemaName 6 pivotNames 7 dwzhbl 8 qxdmChName 9 qxmcChName 10 smcChName
+        ' 4 totalFieldEnName 5 public_currentLayerSchemaName 6 pivotNames 7 dwzhbl 8 qxdmChName 9 qxmcChName 10 smcChName 11 sjdmName
         '组装sql 分组统计的sql语句
-        Dim sql As String = "select substr(""{8}"",1,4) as ""{10}"", ""{8}"" as ""{9}"",tb.* from (select {0} ""{8}"",{2} {3}, sum({4}) {4} from {5} where ROWNUM<10000 group by {0}, {2}) pivot (sum({4}*{7}) For {3} In ({6})) tb  ORDER BY tb.""{8}"""
+        Dim sql As String = "select substr(""{8}"",1,4) as ""{11}"",substr(""{8}"",1,4) as ""{10}"", ""{8}"" as ""{9}"",tb.* from (select {0} ""{8}"",{2} {3}, sum({4}) {4} from {5} group by {0}, {2}) pivot (sum({4}*{7}) For {3} In ({6})) tb  ORDER BY tb.""{8}"""
         'Dim sql As String = "select substr(qxdm,1,4) as djdm, qxdm as qxmc,tb.* from (select {0} {1},{2} {3}, sum({4}) {4} from {5} where ROWNUM<10000 group by {0}, {2}) pivot (sum({4}*{7}) For {3} In ({6})) tb "
-        sql = String.Format(sql, xzqbmGroupExpression, xzqbmFieldENName, groupFieldExpression, public_currentGroupFieldName, public_currentTotalFieldEnName, public_currentLayerSchemaName, pivotNames, dwzhbl, qxdmChName, qxmcChName, smcChName)
+        sql = String.Format(sql, xzqbmGroupExpression, xzqbmFieldENName, groupFieldExpression, public_currentGroupFieldName, public_currentTotalFieldEnName, public_currentLayerSchemaName, pivotNames, dwzhbl, qxdmChName, qxmcChName, smcChName, sjdmName)
         'output.show(sql)
         Dim stasticTableName As String = "表A"
         Dim t As Table = Tables(stasticTableName)
@@ -452,13 +453,14 @@ Module Module1
         t.Visible = False
         DataTables(stasticTableName).Fill(sql, public_currentDataBaseConnection, True)
 
-        t.Cols(0).Visible = False
-
+        t.Cols(sjdmName).Visible = False
+        t.Cols(smcChName).Visible = False
 
         For i As Integer = 0 To t.Rows.Count - 1
             't.Rows(i)(qxmcChName) = "合肥"
+            t.Rows(i)(smcChName) = FoxtableXZQ.XZQClass.GetXZQNameByCode(t.Rows(i)(smcChName))
             t.Rows(i)(qxmcChName) = FoxtableXZQ.XZQClass.GetXZQNameByCode(t.Rows(i)(qxdmChName))
-            For colIndex As Integer = 3 To DataTables(stasticTableName).DataCols.Count - 1
+            For colIndex As Integer = stasticCol To DataTables(stasticTableName).DataCols.Count - 1
                 t.Rows(i)(colIndex) = Round2(t.Rows(i)(colIndex), 2)
             Next
         Next
@@ -476,12 +478,9 @@ Module Module1
         g.GroupOn = "*" '总计
         g.Caption = "安徽省"
         g.TotalOn = foxtableTotalOnCols '对数量和金额进行统计
+        t.Sort = qxdmChName
         t.SubtotalGroups.Add(g) '加入刚刚定义的分组
-        t.Subtotal() '生成汇总模式
-        '按照4位行政代码排序后在替换为行政区名称
-        For i As Integer = 0 To t.Rows.Count - 1
-            t.Rows(i)(smcChName) = FoxtableXZQ.XZQClass.GetXZQNameByCode(t.Rows(i)(smcChName))
-        Next
+        t.Subtotal(True) '生成汇总模式
 
         t.Visible = True
 
@@ -490,6 +489,67 @@ Module Module1
         ' output.show("select * from (select substr(zldwdm, 1, 6) zldwdm,substr(dlbm, 1, 2) dlbm,sum(tbmj) tbmj from dltb where ROWNUM<10000 group by substr(zldwdm, 1, 6) ,substr(dlbm, 1, 2))  pivot(sum(tbmj) for  dlbm in (" & pivotNames  & "))")
     End Sub
 
+    Sub showChart()
+        Dim xzqStringList() As String = {"合肥市", "阜阳市"} 'x维度  为行政区
+        Dim lbStringList As String() = {"耕地_01", "园地_02", "林地_03"} 'Y维度为 分组的类别
+        Dim valueDeList As Double(,) = New Double(xzqStringList.Length, lbStringList.Length) {} '二维数组 记录x,y维度上的统计值
+        Dim xzqDic As Dictionary(Of String, Short) = New Dictionary(Of String, Short)
+        Dim i = 0
+        ' 字典用于保存行政区名称,和对应的位置 后续用于通过名称找到二维数组的下标位置
+        For Each xzq As String In xzqStringList
+            xzqDic.Add(xzq, i)
+            i = i + 1
+        Next
+        i = 0
+        ' 字典用于保存类别名称,和对应的位置 后续用于通过名称找到二维数组的下标位置
+        Dim lbDic As Dictionary(Of String, Short) = New Dictionary(Of String, Short)
+        For Each lb As String In lbStringList
+            lbDic.Add(lb, i)
+            i = i + 1
+        Next
+        '从表A获取数值
+        Dim stasticTableName As String = "表A"
+        Dim t As Table = Tables(stasticTableName)
+        For rowIndex As Integer = 1 To t.Rows.Count
+            ' TBD 查看foxtable 是否对表格中某个分组类 分组统计的功能
+            Dim xzqmc = t.Rows(rowIndex)(public_smcChName)
+
+            If xzqDic.ContainsKey(xzqmc) Then
+                ' 先固定获取 lbStringList(0) 列的值到  二维数组的对用行 列下标下  
+                For Each lb As String In lbStringList
+                    valueDeList(xzqDic(xzqmc), lbDic(lb)) = valueDeList(xzqDic(xzqmc), lbDic(lb)) + t.Rows(rowIndex)(lb)
+                Next
+            End If
+        Next
+
+        Dim Chart As WinForm.Chart '定义一个图表变量
+        Dim Series As WinForm.ChartSeries '定义一个图系变量
+        Chart = Forms("图表展示").Controls("Chart1") ' 引用窗口中的图表
+        Chart.SeriesList.Clear() '清除图表原来的图系
+        'Series = Chart.SeriesList.Add() '增加一个图系
+        'Series.Length = xzqStringList.Length
+        'For j As Integer = 0 To 1
+        '    'Series.X(j) = xzqStringList(j)
+        '    Series.X(j) = j
+        '    Series.Y(j) = valueDeList(xzqDic(xzqStringList(j)), lbDic("耕地_01"))
+        '    Chart.AxisX.SetValueLabel(j, xzqStringList(j)) '指定字符表示
+        'Next
+
+        For xzqIndex As Integer = 0 To xzqStringList.Count - 1
+            Chart.AxisX.SetValueLabel(xzqIndex, xzqStringList(xzqIndex)) '指定字符表示
+        Next
+        For Each lb As String In lbStringList
+            Series = Chart.SeriesList.Add() '增加一个图系
+            Series.Length = xzqStringList.Length
+            For xzqIndex As Integer = 0 To xzqStringList.Count - 1
+                'Series.X(j) = xzqStringList(j)
+                Series.X(xzqIndex) = xzqIndex
+                Series.Y(xzqIndex) = valueDeList(xzqDic(xzqStringList(xzqIndex)), lbDic(lb))
+            Next
+        Next
+        Chart.AxisX.AnnoWithLabels = True
+
+    End Sub
 
     '''' <summary>
     '''' 根据图层表 和 行政区编码信息所在字段英文名获取 行政区信息的分组方式 比如 substr(zldwdm, 1, 6)
