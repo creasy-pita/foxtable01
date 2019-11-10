@@ -750,6 +750,7 @@ Module Module1
         Dim now As Integer = Format(Date.Now, "yyyy")
         If year > now Or year < 1949 Then
             MsgBox("统计年份输入有误")
+            Return
         Else
             Dim ssc As SqlSugar.SqlSugarClient
             ssc = FoxtableXZQ.XZQClass.GetSqlSugarClient(dbConnectionInfo)
@@ -796,9 +797,9 @@ Module Module1
             End If
 
             If String.IsNullOrEmpty(sjdmValue) Then
-                innerSql = innerSql & "select '" & dataYear & "' As {8}, {3} ""{9}"", sum({4}) {4} from {5}" & dataYearTbNameSuffix & " where 1=1 and rownum<10000 group by {3} "
+                innerSql = innerSql & "select '" & dataYear & "' As {8}, {3} ""{9}"", sum({4}) {4} from {5}" & dataYearTbNameSuffix & " group by {3} "
             Else
-                innerSql = innerSql & "select '" & dataYear & "' As {8}, {3} ""{9}"", sum({4}) {4} from {5}" & dataYearTbNameSuffix & " where 1=1 and rownum<10000 And {1} like '{10}%' group by {3} "
+                innerSql = innerSql & "select '" & dataYear & "' As {8}, {3} ""{9}"", sum({4}) {4} from {5}" & dataYearTbNameSuffix & " where {1} like '{10}%' group by {3} "
             End If
             innerSql = innerSql & " Union All "
         Next
@@ -818,6 +819,7 @@ Module Module1
         Dim t As Table = Tables(stasticTableName)
         MainTable = t
         t.Visible = False
+        Forms("加载").Open()
         DataTables(stasticTableName).Fill(sql, public_currentDataBaseConnection, True)
 
         Dim CodeAndNameDic As Dictionary(Of String, String) = New Dictionary(Of String, String)()
@@ -837,14 +839,16 @@ Module Module1
                 t.Rows(i)(colIndex) = Round2(t.Rows(i)(colIndex), 2)
             Next
         Next
+        DataTables("表A").DataCols.Add("计算", GetType(Double))
+        Forms("图表展示").Close()
+        Forms("图表展示").Open()
+        Forms("加载").Close()
 
         MainTable = t
 
         t.Visible = True
 
 
-        'DataTables("表A").Fill("select * from (select substr(zldwdm, 1, 6) zldwdm,substr(dlbm, 1, 2) dlbm,sum(tbmj) tbmj from dltb where ROWNUM<10000 group by substr(zldwdm, 1, 6) ,substr(dlbm, 1, 2))  pivot(sum(tbmj) for  dlbm in (" & pivotNames & "))", "gisq113", True)
-        ' output.show("select * from (select substr(zldwdm, 1, 6) zldwdm,substr(dlbm, 1, 2) dlbm,sum(tbmj) tbmj from dltb where ROWNUM<10000 group by substr(zldwdm, 1, 6) ,substr(dlbm, 1, 2))  pivot(sum(tbmj) for  dlbm in (" & pivotNames  & "))")
     End Sub
 
     Sub showHistChart()
@@ -873,15 +877,6 @@ Module Module1
         Dim groupFieldColName As String
         groupFieldColName = t.Cols(1).Name '比如 地类编码
         ' 获取 年份列表 和 分组类别 
-        'Dim CheckedComboCol As WinForm.CheckedComboBox
-        'CheckedComboCol = Forms("图表展示").Controls("CheckedComboCol")
-        'output.show(CheckedComboCol.Text)
-        'datayearsString = CheckedComboCol.Text
-
-        'Dim ComboXian As WinForm.ComboBox
-        'ComboXian = Forms("图表展示").Controls("ComboXian")
-        'output.show(ComboXian.Text)
-        'groupLBString = ComboXian.Text
         groupLBString = Forms("图表展示").Controls("ComboDLMC").Text '"021, 022"
         datayearsString = Forms("图表展示").Controls("CheckedComboCol").Text '"2017,2018,2019"
         If String.IsNullOrEmpty(groupLBString) Then
