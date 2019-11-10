@@ -35,6 +35,10 @@ Module Module1
 
 
     Sub Main()
+        Dim vd As Double(,) = New Double(1, 2) {}
+
+
+
         Dim currentDataBaseName As String
         Dim currentDataSetSchemaName As String
         'currentDataBaseName = "现状_土地利用_土地调查" '第三级
@@ -254,7 +258,6 @@ Module Module1
     '    'Data Source=192.168.0.113/orcl;User ID=gisq;Password=gisq
 
 
-
     '    'MsgBox(Builder.Tables("表A").Gettype().FullName) 'Foxtable.ADOTable
     '    'MsgBox(Tables("表A").Gettype().FullName) 'Foxtable.Table
     '    Dim pivotNames As String
@@ -267,7 +270,6 @@ Module Module1
     '    '从字段中根据分组字段的 中文名称 获取动态列信息(包括 名称 和 值)
     '    ListDic = GISQ.DataManager.RuleConfigHelper.Dictionaries 'TBD ListDic 已经有值 不需要内容
     '    Dim currentGroupFieldRelationDic As GISQ.DataManager.Dictionary
-
 
     '    For Each dic As GISQ.DataManager.Dictionary In ListDic
     '        If dic.DictName = fzzdname Then
@@ -306,9 +308,6 @@ Module Module1
     '    DataTables("表A").Fill(sql, public_currentDataBaseConnection, True)
     '    'DataTables("表A").Fill("select * from (select substr(zldwdm, 1, 6) zldwdm,substr(dlbm, 1, 2) dlbm,sum(tbmj) tbmj from dltb where ROWNUM<10000 group by substr(zldwdm, 1, 6) ,substr(dlbm, 1, 2))  pivot(sum(tbmj) for  dlbm in (" & pivotNames & "))", "gisq113", True)
     '    ' output.show("select * from (select substr(zldwdm, 1, 6) zldwdm,substr(dlbm, 1, 2) dlbm,sum(tbmj) tbmj from dltb where ROWNUM<10000 group by substr(zldwdm, 1, 6) ,substr(dlbm, 1, 2))  pivot(sum(tbmj) for  dlbm in (" & pivotNames  & "))")
-
-
-
     'End Sub
 
     Sub doStastic()
@@ -317,7 +316,7 @@ Module Module1
         '    Public ds As New GISQ.DataManager.Schema.DatabaseSchema ->  public_currentDatabaseSchema
         '    Public bname As String '表名称 -> public_currentLayerSchemaName
         '   Public fzzdname As String '分组字段名称   -》public_currentGroupFieldChName 
-        '   public_currentGroupFieldChName 从 RibbonTabs("数据统计").Groups("功能组1").Items("工具栏1").Items("Combox6").Text
+        '   public_currentGroupFieldChName 从 RibbonTabs("数据统计").Groups("功能组1").Items("工具栏5").Items("Combox10").Text
 
         public_currentDatabaseSchema = ds
         public_currentLayerSchemaName = bname
@@ -360,7 +359,7 @@ Module Module1
         End If
 
 
-        public_currentGroupFieldChName = RibbonTabs("数据统计").Groups("功能组1").Items("工具栏1").Items("Combox6").Text
+        public_currentGroupFieldChName = RibbonTabs("数据统计").Groups("功能组1").Items("工具栏5").Items("Combox10").Text
         If public_currentGroupFieldChName Is Nothing Then
             MsgBox("分组字段中文名称为空 请检查")
             'Return
@@ -412,11 +411,7 @@ Module Module1
         Dim sjdmName = "djdm"
         Dim stasticCol = 4
         groupFieldExpression = public_currentGroupFieldName
-        ' 分组方式 生产环境 直接用 分组字段名  不需要截取前两位  比如不需要 substr(dlbm, 1, 2); 
-        '       开发环境 地类编码 字段 分组先用 substr(dlbm, 1, 2)
-        If public_currentLayerSchemaName.ToLower() = "dltb" And public_currentGroupFieldName.ToLower() = "dlbm" Then
-            groupFieldExpression = "substr(dlbm, 1, 2)"
-        End If
+
         xzqbmGroupExpression = xzqbmFieldENName
         If xzqbmGroupExpression Is Nothing Then
             MsgBox("行政区分组表达式【" & xzqbmGroupExpression & "】为空 请检查")
@@ -490,10 +485,75 @@ Module Module1
     End Sub
 
     Sub showChart()
-        Dim xzqStringList() As String = {"合肥市", "阜阳市"} 'x维度  为行政区
+        '从表A获取数值 判断是否已经有统计数据
+        Dim stasticTableName As String = "表A"
+        Dim t As Table = Tables(stasticTableName)
+        If t Is Nothing Then
+            MsgBox(stasticTableName & "为空，请检查")
+            Return
+        End If
+        If t.Rows.Count = 0 Then
+            MsgBox(stasticTableName & "数据为空，请先统计报表数据")
+            Return
+        End If
+        '只有一行数据而且  00 位置为空时 表示没有数据
+        If t.Rows.Count = 1 And t.Rows(0)(0) = "" Then
+            MsgBox(stasticTableName & "数据为空,请先统计报表数据")
+            Return
+        End If
+
+
+        Dim qxmcString As String
+        Dim sjmcString As String
+        Dim lbsString As String
+        Dim qxmcStringList() As String '选中区县名称列表 
+        Dim sjmcStringList() As String '选中地级市名称列表 如果区县名称列表不为空则使用区县名称列表画图 
+        Dim xzqStringList() As String  'x维度  为行政区
+        Dim xzqColName As String '行政区匹配时使用的列名 选中区县名称列表 使用public_qxmcChName 否则 public_smcChName
+
+        ' 获取 区县
+        Dim CheckedComboCol As WinForm.CheckedComboBox
+        CheckedComboCol = Forms("图表展示").Controls("CheckedComboCol")
+        output.show(CheckedComboCol.Text)
+        lbsString = CheckedComboCol.Text
+        Dim ComboShi As WinForm.ComboBox
+        ComboShi = Forms("图表展示").Controls("ComboShi")
+        output.show(ComboShi.Text)
+        sjmcString = ComboShi.Text
+        Dim ComboXian As WinForm.ComboBox
+        ComboXian = Forms("图表展示").Controls("ComboXian")
+        output.show(ComboXian.Text)
+        qxmcString = ComboXian.Text
+
+        If String.IsNullOrEmpty(qxmcString) And String.IsNullOrEmpty(sjmcString) Then
+            MsgBox("请先选择行政区")
+            Return
+        End If
+        If String.IsNullOrEmpty(lbsString) Then
+            MsgBox("请先选择分组类别")
+            Return
+        End If
+
+        sjmcStringList = {"合肥市", "阜阳市", "安庆市"}
         Dim lbStringList As String() = {"耕地_01", "园地_02", "林地_03"} 'Y维度为 分组的类别
+        If Not String.IsNullOrEmpty(qxmcString) Then
+            qxmcStringList = qxmcString.Split(","c)
+        Else
+            sjmcStringList = sjmcString.Split(","c)
+        End If
+        lbStringList = lbsString.Split(","c)
+
+        If qxmcStringList IsNot Nothing Then
+            xzqStringList = qxmcStringList
+            xzqColName = public_qxmcChName
+        Else
+            xzqStringList = sjmcStringList
+            xzqColName = public_smcChName
+        End If
+
         Dim valueDeList As Double(,) = New Double(xzqStringList.Length, lbStringList.Length) {} '二维数组 记录x,y维度上的统计值
         Dim xzqDic As Dictionary(Of String, Short) = New Dictionary(Of String, Short)
+
         Dim i = 0
         ' 字典用于保存行政区名称,和对应的位置 后续用于通过名称找到二维数组的下标位置
         For Each xzq As String In xzqStringList
@@ -507,12 +567,9 @@ Module Module1
             lbDic.Add(lb, i)
             i = i + 1
         Next
-        '从表A获取数值
-        Dim stasticTableName As String = "表A"
-        Dim t As Table = Tables(stasticTableName)
+
         For rowIndex As Integer = 1 To t.Rows.Count
-            ' TBD 查看foxtable 是否对表格中某个分组类 分组统计的功能
-            Dim xzqmc = t.Rows(rowIndex)(public_smcChName)
+            Dim xzqmc = t.Rows(rowIndex)(xzqColName)
 
             If xzqDic.ContainsKey(xzqmc) Then
                 ' 先固定获取 lbStringList(0) 列的值到  二维数组的对用行 列下标下  
@@ -521,60 +578,427 @@ Module Module1
                 Next
             End If
         Next
-
+        Dim chartType = Forms("图表展示").Controls("ComboBox1").Text '"饼状图"
         Dim Chart As WinForm.Chart '定义一个图表变量
         Dim Series As WinForm.ChartSeries '定义一个图系变量
         Chart = Forms("图表展示").Controls("Chart1") ' 引用窗口中的图表
         Chart.SeriesList.Clear() '清除图表原来的图系
-        'Series = Chart.SeriesList.Add() '增加一个图系
-        'Series.Length = xzqStringList.Length
-        'For j As Integer = 0 To 1
-        '    'Series.X(j) = xzqStringList(j)
-        '    Series.X(j) = j
-        '    Series.Y(j) = valueDeList(xzqDic(xzqStringList(j)), lbDic("耕地_01"))
-        '    Chart.AxisX.SetValueLabel(j, xzqStringList(j)) '指定字符表示
-        'Next
+        Chart.LegendVisible = True '显示图例
 
-        For xzqIndex As Integer = 0 To xzqStringList.Count - 1
-            Chart.AxisX.SetValueLabel(xzqIndex, xzqStringList(xzqIndex)) '指定字符表示
+        Dim sum As Double = 0
+        For colIndex As Integer = 0 To valueDeList.GetLength(1) - 1
+            sum = sum + valueDeList(0, colIndex)
         Next
-        For Each lb As String In lbStringList
-            Series = Chart.SeriesList.Add() '增加一个图系
-            Series.Length = xzqStringList.Length
-            For xzqIndex As Integer = 0 To xzqStringList.Count - 1
-                'Series.X(j) = xzqStringList(j)
-                Series.X(xzqIndex) = xzqIndex
-                Series.Y(xzqIndex) = valueDeList(xzqDic(xzqStringList(xzqIndex)), lbDic(lb))
+
+        Chart.AxisX.ClearValueLabel()
+        If chartType = "饼状图" Then
+            Chart.VisualEffect = True '加上这一行,让你的图表更漂亮
+            Chart.ChartType = ChartTypeEnum.Pie '图表1类型改为Bar(条形)
+            For Each lb As String In lbStringList
+                Series = Chart.SeriesList.Add() '增加一个图系
+                Series.Length = 1 '一个系列只能包括一个值
+                Series.Text = lb & "(" & valueDeList(0, lbDic(lb)) & ")" '设置图系的标题
+                Series.DataLabelText = Math.Round(valueDeList(0, lbDic(lb)) * 100 / sum, 2) & "%" '计算百分比
+                Series.Y(0) = valueDeList(0, lbDic(lb)) '指定值
+
             Next
-        Next
-        Chart.AxisX.AnnoWithLabels = True
+            Chart.LegendCompass = CompassEnum.East '图列显示在东方(右方)
 
+        Else
+
+            Chart.ChartType = ChartTypeEnum.Bar
+
+            For xzqIndex As Integer = 0 To xzqStringList.Count - 1
+                Chart.AxisX.SetValueLabel(xzqIndex, xzqStringList(xzqIndex)) 'x轴指定字符表示
+            Next
+            Chart.AxisY.Text = RibbonTabs("数据统计")("功能组2")("统计单位").Text 'x轴指定字符表示
+
+            For Each lb As String In lbStringList
+                Series = Chart.SeriesList.Add() '增加一个图系
+                Series.Length = xzqStringList.Length
+                Series.TooltipText = "X = {#XVAL}, Y = {#YVAL}"
+                Series.Text = lb.Substring(0, lb.LastIndexOf("_")) '截取去除下划线及编码部分
+                For xzqIndex As Integer = 0 To xzqStringList.Count - 1
+                    Series.X(xzqIndex) = xzqIndex
+                    Series.Y(xzqIndex) = valueDeList(xzqDic(xzqStringList(xzqIndex)), lbDic(lb))
+                Next
+            Next
+            Chart.AxisX.AnnoWithLabels = True
+        End If
     End Sub
 
-    '''' <summary>
-    '''' 根据图层表 和 行政区编码信息所在字段英文名获取 行政区信息的分组方式 比如 substr(zldwdm, 1, 6)
-    '''' </summary>
-    '''' <param name="layerSchemaName">图层表名称，不同图层表行政区编码信息所在字段会不同</param>
-    '''' <param name="xzqbmFieldName">行政区编码信息所在字段英文名</param>
-    '''' <returns></returns>
-    'Private Function getXzqbmGroupExpression(ByVal layerSchemaName As String, ByVal xzqbmFieldName As String) As String
-    '    If layerSchemaName.ToLower = "dltb" Then
-    '        Return "substr(zldwdm, 1, 6)"
-    '    End If
-    '    Return xzqbmFieldName
-    'End Function
 
-    '''' <summary>
-    '''' 根据图层表 和 分组所在字段英文名 获取 行政区信息的分组方式 比如 substr(zldwdm, 1, 6)
-    '''' </summary>
-    '''' <param name="layerSchemaName">图层表名称，不同图层表行政区编码信息所在字段会不同</param>
-    '''' <param name="groupField">分组所在字段英文名</param>
-    '''' <returns></returns>
-    'Private Function getGroupFieldExpression(ByVal layerSchemaName As String, ByVal groupField As String) As String
-    '    If layerSchemaName.ToLower() = "dltb" And groupField.ToLower() = "dlbm" Then
-    '        Return "substr(dlbm, 1, 2)"
-    '    End If
-    '    Return groupField
-    'End Function
+
+    Sub doHistStastic()
+        '根据选中的 第四层分类确定 获取数据库连接信息 并保存到 Connections中 
+        '需要用到全局变量有  
+        '    Public ds As New GISQ.DataManager.Schema.DatabaseSchema ->  public_currentDatabaseSchema
+        '    Public bname As String '表名称 -> public_currentLayerSchemaName
+        '   Public fzzdname As String '分组字段名称   -》public_currentGroupFieldChName 
+        '   public_currentGroupFieldChName 从 RibbonTabs("数据统计").Groups("功能组1").Items("工具栏5").Items("Combox10").Text
+
+        public_currentDatabaseSchema = ds
+        public_currentLayerSchemaName = bname
+        public_currentGroupFieldName = fzzdname '比如 "地类编码"
+        public_currentTotalFieldEnName = tjnrname '比如 "图斑面积:tbmj"
+
+        If public_currentGroupFieldName Is Nothing Then
+            MsgBox("分组字段名称为空 请检查")
+            'Return
+        End If
+        If public_currentDatabaseSchema Is Nothing Then
+            MsgBox("通过配置名称【" & public_currentDataBaseName & "】获取的DatabaseSchema为空 请检查")
+            'Return
+        End If
+
+        'TBD public_currentDatabaseSchema public_currentDataBaseConnection 处理为空的场景
+        public_currentDataBaseConnection = public_currentDatabaseSchema.DefaultConnection
+
+        If public_currentDataBaseConnection Is Nothing Then
+            MsgBox("通过 名称【" & public_currentDataBaseName & "】获取的DatabaseSchema 获取不到数据库连接名信息 请检查")
+            'Return
+        End If
+
+        Dim dbConnectionInfo As GISQ.Util.Data.DbConnectionInfo = GISQ.Framework.DbConnectHelper.GetDbConnection(public_currentDataBaseConnection)
+        If dbConnectionInfo Is Nothing Then
+            MsgBox("通过传递 名称【" & public_currentDataBaseConnection & "】调用接口GISQ.Framework.DbConnectHelper.GetDbConnection 获取的 数据库连接信息为空 请检查DbConnectionInfo的配置")
+            'Return
+        End If
+        Dim connectString As String = "Provider=MSDAORA.1;" & dbConnectionInfo.GetConnectString()
+
+        If connectString Is Nothing Then
+            MsgBox("通过 名称【" & public_currentDataBaseName & "】获取的DatabaseSchema 获取不到数据库连接串信息 请检查")
+            'Return
+        End If
+
+        '并保存到 Connections中 
+        If Not Connections.Contains(public_currentDataBaseConnection) Then
+            Connections.Add(public_currentDataBaseConnection, connectString)
+            'MsgBox("Connections add " & public_currentDataBaseConnection & connectString)
+        End If
+
+
+        public_currentGroupFieldChName = RibbonTabs("数据统计").Groups("功能组1").Items("工具栏5").Items("Combox10").Text
+        If public_currentGroupFieldChName Is Nothing Then
+            MsgBox("分组字段中文名称为空 请检查")
+            'Return
+        End If
+        'MsgBox(public_currentGroupFieldName)
+        '从字段中根据分组字段的 中文名称 获取动态列信息(包括 名称 和 值)
+        ListDic = GISQ.DataManager.RuleConfigHelper.Dictionaries 'TBD ListDic 已经有值 不需要内容
+        Dim currentGroupFieldRelationDic As GISQ.DataManager.Dictionary
+
+        For Each dic As GISQ.DataManager.Dictionary In ListDic
+            If dic.DictID = public_currentGroupFieldName Then
+                currentGroupFieldRelationDic = dic
+            End If
+        Next
+
+        If currentGroupFieldRelationDic Is Nothing OrElse currentGroupFieldRelationDic.CodeNames.Count = 0 Then
+            MsgBox("分组字段【" & public_currentGroupFieldChName & "】没有获取到关联的数据字典项 不能进行统计" & vbCrLf & "分组字段需要获取到关联的数据字典项才能统计 请检查关联的数据字典项配置")
+            'Return
+        End If
+        If currentGroupFieldRelationDic.CodeNames.Count = 0 Then
+            MsgBox("分组字段【" & public_currentGroupFieldChName & "】关联的数据字典项个数为0 不能进行统计" & vbCrLf & "分组字段需要有关联的数据字典项才能统计 请检查关联的数据字典项配置")
+            'Return
+        End If
+
+
+        Dim groupFieldExpression As String
+        Dim xzqbmFieldENName As String = public_xzqbmFieldENName ' 行政区编码信息字段
+        Dim xzqbmGroupExpression As String = public_xzqbmGroupExpression '行政区编码 分组 表达式
+        Dim qxdmChName = public_qxdmChName
+        Dim qxmcChName = public_qxmcChName
+        Dim smcChName = public_smcChName
+        Dim sjdmName = "djdm"
+        Dim stasticCol = 3
+        groupFieldExpression = public_currentGroupFieldName
+
+        xzqbmGroupExpression = xzqbmFieldENName
+        If xzqbmGroupExpression Is Nothing Then
+            MsgBox("行政区分组表达式【" & xzqbmGroupExpression & "】为空 请检查")
+            'Return
+        End If
+        If xzqbmFieldENName Is Nothing Then
+            MsgBox("行政区字段【" & xzqbmFieldENName & "】为空 请检查")
+            'Return
+        End If
+        If groupFieldExpression Is Nothing Then
+            MsgBox("行政区分组表达式【" & groupFieldExpression & "】为空 请检查")
+            'Return
+        End If
+        If xzqbmFieldENName Is Nothing Then
+            MsgBox("行政区字段【" & xzqbmFieldENName & "】为空 请检查")
+            'Return
+        End If
+        If dwzhbl = 0 Then
+            MsgBox("单位转换比例没有设置 请检查")
+            'Return
+        End If
+
+
+        'datayearColName, public_currentGroupFieldChName, sjdmValue, GroupFieldAliasChName
+        Dim datayearColName = "datayear"
+        Dim sjdmValue = XzqhCode
+        Dim GroupFieldAliasChName = "名称"
+        Dim currentDataYearTbNameSuffix = "" 'TBD 当前年份时表的后缀 备注：有可能当前年份提前生成到历史表 比如 _2019
+        '加载年份
+        Dim dataYearDic As Dictionary(Of String, Boolean) = New Dictionary(Of String, Boolean)
+        Dim dataYearList As String()
+        Dim year As Integer = Val(RibbonTabs("数据统计")("功能组3")("TextYear").Text)
+
+        Dim now As Integer = Format(Date.Now, "yyyy")
+        If year > now Or year < 1949 Then
+            MsgBox("统计年份输入有误")
+        Else
+            Dim ssc As SqlSugar.SqlSugarClient
+            ssc = FoxtableXZQ.XZQClass.GetSqlSugarClient(dbConnectionInfo)
+
+            If year < now Then
+
+                For i As Integer = year To now
+                    Dim TableName As String = public_currentLayerSchemaName
+                    If i < now Then
+                        TableName = TableName & "_" & i
+                    End If
+                    dataYearDic.Add(i.ToString(), ssc.DbMaintenance.IsAnyTable(TableName, False))
+                Next
+            End If
+        End If
+        dataYearList = dataYearDic.Keys.ToArray()
+
+
+        Dim pivotNames As String = "" '数据年份行转列的sql 语句段
+        Dim datayearCols As String = ""
+        '加入 Where判断 字典中重复的 Code 只加入一次
+        For Each dataYear As String In dataYearList
+            pivotNames &= dataYear & " """ & dataYear & ""","
+            datayearCols &= """" & dataYear & ""","
+        Next
+        pivotNames = pivotNames.TrimEnd(","c)
+        datayearCols = datayearCols.TrimEnd(","c)
+        ' output.show(pivotNames)
+
+        ' 0 xzqbmGroupExpression  1 xzqbmFieldENName 2 groupFieldExpression 3 public_currentGroupFieldName
+        ' 4 totalFieldEnName 5 public_currentLayerSchemaName 6 pivotNames 7 sjdmName 8  datayearColName 
+        ' 9 public_currentGroupFieldChName 10 sjdmValue 11 GroupFieldAliasChName 12 dwzhbl 13 datayearcols
+        '组装sql 分组统计的sql语句
+        Dim innerSql As String
+        For Each dataYear As String In dataYearList
+            If Not dataYearDic(dataYear) Then
+                Continue For
+            End If
+            Dim dataYearTbNameSuffix = ""
+            If DateTime.Now.Year.ToString() = dataYear Then
+                dataYearTbNameSuffix = currentDataYearTbNameSuffix
+            Else
+                dataYearTbNameSuffix = "_" + dataYear
+            End If
+
+            If String.IsNullOrEmpty(sjdmValue) Then
+                innerSql = innerSql & "select '" & dataYear & "' As {8}, {3} ""{9}"", sum({4}) {4},substr({1},1,4) ""{7}"" from {5}" & dataYearTbNameSuffix & " where 1=1 and rownum<10000  group by substr({1},1,4), {3} "
+            Else
+                innerSql = innerSql & "select '" & dataYear & "' As {8}, {3} ""{9}"", sum({4}) {4},substr({1},1,4) ""{7}"" from {5}" & dataYearTbNameSuffix & " where 1=1 and rownum<10000 And {1} like '{10}%' group by substr({1},1,4), {3} "
+            End If
+            innerSql = innerSql & " Union All "
+        Next
+        'TBD 去除 末尾的 Union All
+        innerSql = innerSql.Substring(0, innerSql.LastIndexOf("Union All"))
+        ' 组装完整sql 
+        'select  tb."地类编码","地类编码" As "名称",TB."djdm","2017","2018","2019"
+        Dim sql = "select tb.""{9}"", ""{9}"" As ""{11}"", tb.""{7}"",{13} from ("
+        sql = sql & "Select uniontb.* from ("
+        sql = sql & innerSql
+        sql = sql & ") uniontb )  pivot (sum({4}*{12}) For {8} In ({6})) tb order by tb.""{9}"""
+
+        'Dim sql As String = "select substr(qxdm,1,4) as djdm, qxdm as qxmc,tb.* from (select {0} {1},{2} {3}, sum({4}) {4} from {5} where ROWNUM<10000 group by {0}, {2}) pivot (sum({4}*{7}) For {3} In ({6})) tb "
+        sql = String.Format(sql, xzqbmGroupExpression, xzqbmFieldENName, groupFieldExpression, public_currentGroupFieldName, public_currentTotalFieldEnName, public_currentLayerSchemaName, pivotNames, sjdmName, datayearColName, public_currentGroupFieldChName, sjdmValue, GroupFieldAliasChName, dwzhbl, datayearCols)
+        'output.show(sql)
+        Dim stasticTableName As String = "表A"
+        Dim t As Table = Tables(stasticTableName)
+        MainTable = t
+        t.Visible = False
+        DataTables(stasticTableName).Fill(sql, public_currentDataBaseConnection, True)
+
+        Dim CodeAndNameDic As Dictionary(Of String, String) = New Dictionary(Of String, String)()
+        For Each codeName As GISQ.DataManager.CodeName In currentGroupFieldRelationDic.CodeNames
+            If CodeAndNameDic.ContainsKey(codeName.Code) Then
+                Continue For
+            End If
+            CodeAndNameDic.Add(codeName.Code, codeName.Name)
+        Next
+
+        For i As Integer = 0 To t.Rows.Count - 1
+            '地类名称 列 根据地类编码获取地类名称
+            If CodeAndNameDic.ContainsKey(t.Rows(i)(public_currentGroupFieldChName)) Then
+                t.Rows(i)(GroupFieldAliasChName) = CodeAndNameDic(t.Rows(i)(public_currentGroupFieldChName))
+            End If
+            For colIndex As Integer = stasticCol To DataTables(stasticTableName).DataCols.Count - 1
+                t.Rows(i)(colIndex) = Round2(t.Rows(i)(colIndex), 2)
+            Next
+        Next
+
+        MainTable = t
+
+        t.Visible = True
+
+
+        'DataTables("表A").Fill("select * from (select substr(zldwdm, 1, 6) zldwdm,substr(dlbm, 1, 2) dlbm,sum(tbmj) tbmj from dltb where ROWNUM<10000 group by substr(zldwdm, 1, 6) ,substr(dlbm, 1, 2))  pivot(sum(tbmj) for  dlbm in (" & pivotNames & "))", "gisq113", True)
+        ' output.show("select * from (select substr(zldwdm, 1, 6) zldwdm,substr(dlbm, 1, 2) dlbm,sum(tbmj) tbmj from dltb where ROWNUM<10000 group by substr(zldwdm, 1, 6) ,substr(dlbm, 1, 2))  pivot(sum(tbmj) for  dlbm in (" & pivotNames  & "))")
+    End Sub
+
+    Sub showHistChart()
+        '从表A获取数值 判断是否已经有统计数据
+        Dim stasticTableName As String = "表A"
+        Dim t As Table = Tables(stasticTableName)
+        If t Is Nothing Then
+            MsgBox(stasticTableName & "为空，请检查")
+            Return
+        End If
+        If t.Rows.Count = 0 Then
+            MsgBox(stasticTableName & "数据为空，请先统计报表数据")
+            Return
+        End If
+        '只有一行数据而且  00 位置为空时 表示没有数据
+        If t.Rows.Count = 1 And t.Rows(0)(0) = "" Then
+            MsgBox(stasticTableName & "数据为空,请先统计报表数据")
+            Return
+        End If
+
+
+        Dim groupLBString As String
+        Dim datayearsString As String 'y 轴 选中年份列表名称列表 
+        Dim groupLBStringList() As String 'x 轴 选中分组类别名称列表 
+        Dim datayearStringList As String()  'Y维度为 分组的类别
+        Dim groupFieldColName As String
+        groupFieldColName = t.Cols(0).Name '比如 地类编码
+        ' 获取 年份列表 和 分组类别 
+        'Dim CheckedComboCol As WinForm.CheckedComboBox
+        'CheckedComboCol = Forms("图表展示").Controls("CheckedComboCol")
+        'output.show(CheckedComboCol.Text)
+        'datayearsString = CheckedComboCol.Text
+
+        'Dim ComboXian As WinForm.ComboBox
+        'ComboXian = Forms("图表展示").Controls("ComboXian")
+        'output.show(ComboXian.Text)
+        'groupLBString = ComboXian.Text
+
+        If String.IsNullOrEmpty(groupLBString) Then
+            MsgBox("请先选择分组类别")
+            Return
+        End If
+        If String.IsNullOrEmpty(datayearsString) Then
+            MsgBox("请先选择年份列表")
+            Return
+        End If
+        groupLBString = "021, 022"
+        datayearsString = "2017,2018,2019"
+        If Not String.IsNullOrEmpty(groupLBString) Then
+            groupLBStringList = groupLBString.Split(","c)
+        End If
+        datayearStringList = datayearsString.Split(","c)
+
+
+        Dim valueDeList As Double(,) = New Double(groupLBStringList.Length, datayearStringList.Length) {} '二维数组 记录x,y维度上的统计值
+        Dim groupLBDic As Dictionary(Of String, Short) = New Dictionary(Of String, Short)
+
+        Dim i = 0
+        ' 字典用于保存行政区名称,和对应的位置 后续用于通过名称找到二维数组的下标位置
+        For Each groupLB As String In groupLBStringList
+            groupLBDic.Add(groupLB, i)
+            i = i + 1
+        Next
+        i = 0
+        ' 字典用于保存类别名称,和对应的位置 后续用于通过名称找到二维数组的下标位置
+        Dim dataYearDic As Dictionary(Of String, Short) = New Dictionary(Of String, Short)
+        For Each datayear As String In datayearStringList
+            dataYearDic.Add(datayear, i)
+            i = i + 1
+        Next
+
+        For rowIndex As Integer = 1 To t.Rows.Count
+            Dim groupLB = t.Rows(rowIndex)(groupFieldColName)
+
+            If groupLBDic.ContainsKey(groupLB) Then
+                ' 先固定获取 lbStringList(0) 列的值到  二维数组的对用行 列下标下  
+                For Each datayear As String In datayearStringList
+                    valueDeList(groupLBDic(groupLB), dataYearDic(datayear)) = valueDeList(groupLBDic(groupLB), dataYearDic(datayear)) + t.Rows(rowIndex)(datayear)
+                Next
+            End If
+        Next
+        Dim chartType = Forms("图表展示").Controls("ComboBox1").Text '"饼状图"
+        Dim Chart As WinForm.Chart '定义一个图表变量
+        Dim Series As WinForm.ChartSeries '定义一个图系变量
+        Chart = Forms("图表展示").Controls("Chart1") ' 引用窗口中的图表
+        Chart.SeriesList.Clear() '清除图表原来的图系
+        Chart.LegendVisible = True '显示图例
+
+        Dim sum As Double = 0
+        '遍历 二维 （即列向）
+        For colIndex As Integer = 0 To valueDeList.GetLength(1) - 1
+            sum = sum + valueDeList(0, colIndex)
+        Next
+
+        Chart.AxisX.ClearValueLabel()
+        If chartType = "饼状图" Then
+            Chart.VisualEffect = True '加上这一行,让你的图表更漂亮
+            Chart.ChartType = ChartTypeEnum.Pie '图表1类型改为Bar(条形)
+            For Each datayear As String In datayearStringList
+                Series = Chart.SeriesList.Add() '增加一个图系
+                Series.Length = 1 '一个系列只能包括一个值
+                Series.Text = datayear & "(" & valueDeList(0, dataYearDic(datayear)) & ")" '设置图系的标题
+                Series.DataLabelText = Math.Round(valueDeList(0, dataYearDic(datayear)) * 100 / sum, 2) & "%" '计算百分比
+                Series.Y(0) = valueDeList(0, dataYearDic(datayear)) '指定值
+
+            Next
+            Chart.LegendCompass = CompassEnum.East '图列显示在东方(右方)
+
+        Else
+
+            Chart.ChartType = ChartTypeEnum.Bar
+
+            For groupLB As Integer = 0 To groupLBStringList.Count - 1
+                Chart.AxisX.SetValueLabel(groupLB, groupLBStringList(groupLB)) 'x轴指定字符表示
+            Next
+            Chart.AxisY.Text = RibbonTabs("数据统计")("功能组2")("统计单位").Text 'x轴指定字符表示
+
+            For Each datayear As String In datayearStringList
+                Series = Chart.SeriesList.Add() '增加一个图系
+                Series.Length = groupLBStringList.Length
+                Series.TooltipText = "X = {#XVAL}, Y = {#YVAL}"
+                Series.Text = datayear
+                For groupLBIndex As Integer = 0 To groupLBStringList.Count - 1
+                    Series.X(groupLBIndex) = groupLBIndex
+                    Series.Y(groupLBIndex) = valueDeList(groupLBDic(groupLBStringList(groupLBIndex)), dataYearDic(datayear))
+                Next
+            Next
+            Chart.AxisX.AnnoWithLabels = True
+        End If
+    End Sub
+    ''' <summary>
+    ''' 根据图层表 和 行政区编码信息所在字段英文名获取 行政区信息的分组方式 比如 substr(zldwdm, 1, 6)
+    ''' </summary>
+    ''' <param name="layerSchemaName">图层表名称，不同图层表行政区编码信息所在字段会不同</param>
+    ''' <param name="xzqbmFieldName">行政区编码信息所在字段英文名</param>
+    ''' <returns></returns>
+    Private Function getXzqbmGroupExpression(ByVal layerSchemaName As String, ByVal xzqbmFieldName As String) As String
+        If layerSchemaName.ToLower = "dltb" Then
+            Return "substr(zldwdm, 1, 6)"
+        End If
+        Return xzqbmFieldName
+    End Function
+
+    ''' <summary>
+    ''' 根据图层表 和 分组所在字段英文名 获取 行政区信息的分组方式 比如 substr(zldwdm, 1, 6)
+    ''' </summary>
+    ''' <param name="layerSchemaName">图层表名称，不同图层表行政区编码信息所在字段会不同</param>
+    ''' <param name="groupField">分组所在字段英文名</param>
+    ''' <returns></returns>
+    Private Function getGroupFieldExpression(ByVal layerSchemaName As String, ByVal groupField As String) As String
+        If layerSchemaName.ToLower() = "dltb" And groupField.ToLower() = "dlbm" Then
+            Return "substr(dlbm, 1, 2)"
+        End If
+        Return groupField
+    End Function
 
 End Module
