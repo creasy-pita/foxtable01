@@ -325,11 +325,11 @@ Module Module1
 
         If public_currentGroupFieldName Is Nothing Then
             MsgBox("分组字段名称为空 请检查")
-            'Return
+            Return
         End If
         If public_currentDatabaseSchema Is Nothing Then
             MsgBox("通过配置名称【" & public_currentDataBaseName & "】获取的DatabaseSchema为空 请检查")
-            'Return
+            Return
         End If
 
         'TBD public_currentDatabaseSchema public_currentDataBaseConnection 处理为空的场景
@@ -337,19 +337,19 @@ Module Module1
 
         If public_currentDataBaseConnection Is Nothing Then
             MsgBox("通过 名称【" & public_currentDataBaseName & "】获取的DatabaseSchema 获取不到数据库连接名信息 请检查")
-            'Return
+            Return
         End If
 
         Dim dbConnectionInfo As GISQ.Util.Data.DbConnectionInfo = GISQ.Framework.DbConnectHelper.GetDbConnection(public_currentDataBaseConnection)
         If dbConnectionInfo Is Nothing Then
             MsgBox("通过传递 名称【" & public_currentDataBaseConnection & "】调用接口GISQ.Framework.DbConnectHelper.GetDbConnection 获取的 数据库连接信息为空 请检查DbConnectionInfo的配置")
-            'Return
+            Return
         End If
         Dim connectString As String = "Provider=MSDAORA.1;" & dbConnectionInfo.GetConnectString()
 
         If connectString Is Nothing Then
             MsgBox("通过 名称【" & public_currentDataBaseName & "】获取的DatabaseSchema 获取不到数据库连接串信息 请检查")
-            'Return
+            Return
         End If
 
         '并保存到 Connections中 
@@ -362,7 +362,7 @@ Module Module1
         public_currentGroupFieldChName = RibbonTabs("数据统计").Groups("功能组1").Items("工具栏5").Items("Combox10").Text
         If public_currentGroupFieldChName Is Nothing Then
             MsgBox("分组字段中文名称为空 请检查")
-            'Return
+            Return
         End If
         'MsgBox(public_currentGroupFieldName)
         '从字段中根据分组字段的 中文名称 获取动态列信息(包括 名称 和 值)
@@ -377,11 +377,11 @@ Module Module1
 
         If currentGroupFieldRelationDic Is Nothing OrElse currentGroupFieldRelationDic.CodeNames.Count = 0 Then
             MsgBox("分组字段【" & public_currentGroupFieldChName & "】没有获取到关联的数据字典项 不能进行统计" & vbCrLf & "分组字段需要获取到关联的数据字典项才能统计 请检查关联的数据字典项配置")
-            'Return
+            Return
         End If
         If currentGroupFieldRelationDic.CodeNames.Count = 0 Then
             MsgBox("分组字段【" & public_currentGroupFieldChName & "】关联的数据字典项个数为0 不能进行统计" & vbCrLf & "分组字段需要有关联的数据字典项才能统计 请检查关联的数据字典项配置")
-            'Return
+            Return
         End If
 
         Dim pivotNames As String '行转列的sql 语句段
@@ -415,24 +415,24 @@ Module Module1
         xzqbmGroupExpression = xzqbmFieldENName
         If xzqbmGroupExpression Is Nothing Then
             MsgBox("行政区分组表达式【" & xzqbmGroupExpression & "】为空 请检查")
-            'Return
+            Return
         End If
         If xzqbmFieldENName Is Nothing Then
             MsgBox("行政区字段【" & xzqbmFieldENName & "】为空 请检查")
-            'Return
+            Return
         End If
         If groupFieldExpression Is Nothing Then
             MsgBox("行政区分组表达式【" & groupFieldExpression & "】为空 请检查")
-            'Return
+            Return
         End If
         If xzqbmFieldENName Is Nothing Then
             MsgBox("行政区字段【" & xzqbmFieldENName & "】为空 请检查")
-            'Return
+            Return
         End If
         dwzhbl = 1
         If dwzhbl = 0 Then
             MsgBox("单位转换比例没有设置 请检查")
-            'Return
+            Return
         End If
 
         ' 0 xzqbmGroupExpression  1 xzqbmFieldENName 2 groupFieldExpression 3 public_currentGroupFieldName
@@ -644,11 +644,11 @@ Module Module1
 
         If public_currentGroupFieldName Is Nothing Then
             MsgBox("分组字段名称为空 请检查")
-            'Return
+            Return
         End If
         If public_currentDatabaseSchema Is Nothing Then
             MsgBox("通过配置名称【" & public_currentDataBaseName & "】获取的DatabaseSchema为空 请检查")
-            'Return
+            Return
         End If
 
         'TBD public_currentDatabaseSchema public_currentDataBaseConnection 处理为空的场景
@@ -656,19 +656,19 @@ Module Module1
 
         If public_currentDataBaseConnection Is Nothing Then
             MsgBox("通过 名称【" & public_currentDataBaseName & "】获取的DatabaseSchema 获取不到数据库连接名信息 请检查")
-            'Return
+            Return
         End If
 
         Dim dbConnectionInfo As GISQ.Util.Data.DbConnectionInfo = GISQ.Framework.DbConnectHelper.GetDbConnection(public_currentDataBaseConnection)
         If dbConnectionInfo Is Nothing Then
             MsgBox("通过传递 名称【" & public_currentDataBaseConnection & "】调用接口GISQ.Framework.DbConnectHelper.GetDbConnection 获取的 数据库连接信息为空 请检查DbConnectionInfo的配置")
-            'Return
+            Return
         End If
         Dim connectString As String = "Provider=MSDAORA.1;" & dbConnectionInfo.GetConnectString()
 
         If connectString Is Nothing Then
             MsgBox("通过 名称【" & public_currentDataBaseName & "】获取的DatabaseSchema 获取不到数据库连接串信息 请检查")
-            'Return
+            Return
         End If
 
         '并保存到 Connections中 
@@ -681,7 +681,7 @@ Module Module1
         public_currentGroupFieldChName = RibbonTabs("数据统计").Groups("功能组1").Items("工具栏5").Items("Combox10").Text
         If public_currentGroupFieldChName Is Nothing Then
             MsgBox("分组字段中文名称为空 请检查")
-            'Return
+            Return
         End If
         'MsgBox(public_currentGroupFieldName)
         '从字段中根据分组字段的 中文名称 获取动态列信息(包括 名称 和 值)
@@ -696,11 +696,11 @@ Module Module1
 
         If currentGroupFieldRelationDic Is Nothing OrElse currentGroupFieldRelationDic.CodeNames.Count = 0 Then
             MsgBox("分组字段【" & public_currentGroupFieldChName & "】没有获取到关联的数据字典项 不能进行统计" & vbCrLf & "分组字段需要获取到关联的数据字典项才能统计 请检查关联的数据字典项配置")
-            'Return
+            Return
         End If
         If currentGroupFieldRelationDic.CodeNames.Count = 0 Then
             MsgBox("分组字段【" & public_currentGroupFieldChName & "】关联的数据字典项个数为0 不能进行统计" & vbCrLf & "分组字段需要有关联的数据字典项才能统计 请检查关联的数据字典项配置")
-            'Return
+            Return
         End If
 
 
@@ -717,23 +717,23 @@ Module Module1
         xzqbmGroupExpression = xzqbmFieldENName
         If xzqbmGroupExpression Is Nothing Then
             MsgBox("行政区分组表达式【" & xzqbmGroupExpression & "】为空 请检查")
-            'Return
+            Return
         End If
         If xzqbmFieldENName Is Nothing Then
             MsgBox("行政区字段【" & xzqbmFieldENName & "】为空 请检查")
-            'Return
+            Return
         End If
         If groupFieldExpression Is Nothing Then
             MsgBox("行政区分组表达式【" & groupFieldExpression & "】为空 请检查")
-            'Return
+            Return
         End If
         If xzqbmFieldENName Is Nothing Then
             MsgBox("行政区字段【" & xzqbmFieldENName & "】为空 请检查")
-            'Return
+            Return
         End If
         If dwzhbl = 0 Then
             MsgBox("单位转换比例没有设置 请检查")
-            'Return
+            Return
         End If
 
 
@@ -796,9 +796,9 @@ Module Module1
             End If
 
             If String.IsNullOrEmpty(sjdmValue) Then
-                innerSql = innerSql & "select '" & dataYear & "' As {8}, {3} ""{9}"", sum({4}) {4},substr({1},1,4) ""{7}"" from {5}" & dataYearTbNameSuffix & " where 1=1 and rownum<10000  group by substr({1},1,4), {3} "
+                innerSql = innerSql & "select '" & dataYear & "' As {8}, {3} ""{9}"", sum({4}) {4} from {5}" & dataYearTbNameSuffix & " where 1=1 and rownum<10000 group by {3} "
             Else
-                innerSql = innerSql & "select '" & dataYear & "' As {8}, {3} ""{9}"", sum({4}) {4},substr({1},1,4) ""{7}"" from {5}" & dataYearTbNameSuffix & " where 1=1 and rownum<10000 And {1} like '{10}%' group by substr({1},1,4), {3} "
+                innerSql = innerSql & "select '" & dataYear & "' As {8}, {3} ""{9}"", sum({4}) {4} from {5}" & dataYearTbNameSuffix & " where 1=1 and rownum<10000 And {1} like '{10}%' group by {3} "
             End If
             innerSql = innerSql & " Union All "
         Next
@@ -806,7 +806,7 @@ Module Module1
         innerSql = innerSql.Substring(0, innerSql.LastIndexOf("Union All"))
         ' 组装完整sql 
         'select  tb."地类编码","地类编码" As "名称",TB."djdm","2017","2018","2019"
-        Dim sql = "select tb.""{9}"", ""{9}"" As ""{11}"", tb.""{7}"",{13} from ("
+        Dim sql = "select tb.""{9}"", ""{9}"" As ""{11}"", {13} from ("
         sql = sql & "Select uniontb.* from ("
         sql = sql & innerSql
         sql = sql & ") uniontb )  pivot (sum({4}*{12}) For {8} In ({6})) tb order by tb.""{9}"""
@@ -871,7 +871,7 @@ Module Module1
         Dim groupLBStringList() As String 'x 轴 选中分组类别名称列表 
         Dim datayearStringList As String()  'Y维度为 分组的类别
         Dim groupFieldColName As String
-        groupFieldColName = t.Cols(0).Name '比如 地类编码
+        groupFieldColName = t.Cols(1).Name '比如 地类编码
         ' 获取 年份列表 和 分组类别 
         'Dim CheckedComboCol As WinForm.CheckedComboBox
         'CheckedComboCol = Forms("图表展示").Controls("CheckedComboCol")
@@ -882,7 +882,8 @@ Module Module1
         'ComboXian = Forms("图表展示").Controls("ComboXian")
         'output.show(ComboXian.Text)
         'groupLBString = ComboXian.Text
-
+        groupLBString = Forms("图表展示").Controls("ComboDLMC").Text '"021, 022"
+        datayearsString = Forms("图表展示").Controls("CheckedComboCol").Text '"2017,2018,2019"
         If String.IsNullOrEmpty(groupLBString) Then
             MsgBox("请先选择分组类别")
             Return
@@ -891,8 +892,7 @@ Module Module1
             MsgBox("请先选择年份列表")
             Return
         End If
-        groupLBString = "021, 022"
-        datayearsString = "2017,2018,2019"
+
         If Not String.IsNullOrEmpty(groupLBString) Then
             groupLBStringList = groupLBString.Split(","c)
         End If
@@ -926,7 +926,7 @@ Module Module1
                 Next
             End If
         Next
-        Dim chartType = Forms("图表展示").Controls("ComboBox1").Text '"饼状图"
+        Dim chartType = "柱状图" 'Forms("图表展示").Controls("ComboBox1").Text '"饼状图"
         Dim Chart As WinForm.Chart '定义一个图表变量
         Dim Series As WinForm.ChartSeries '定义一个图系变量
         Chart = Forms("图表展示").Controls("Chart1") ' 引用窗口中的图表
