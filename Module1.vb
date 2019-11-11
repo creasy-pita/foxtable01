@@ -391,8 +391,6 @@ Module Module1
         For Each codeName As GISQ.DataManager.CodeName In currentGroupFieldRelationDic.CodeNames
             If Not pivotNameList.Contains(codeName.Code) Then
                 pivotNameList.Add(codeName.Code)
-                'pivotNames &= "'" & codeName.Code & "'""" & codeName.Code & "_" & codeName.Code & ""","
-                'foxtableTotalOnCols &= codeName.Code & "_" & codeName.Code & ","
                 pivotNames &= "'" & codeName.Code & "'""" & codeName.Name & "_" & codeName.Code & ""","
                 foxtableTotalOnCols &= codeName.Name & "_" & codeName.Code & ","
             End If
@@ -410,8 +408,11 @@ Module Module1
         Dim smcChName = public_smcChName
         Dim sjdmName = "djdm"
         Dim stasticCol = 4
-        groupFieldExpression = public_currentGroupFieldName
-
+        groupFieldExpression = public_currentGroupFieldName & ""
+        'TBD 分组字段的分组表达式 开发环境 生产环境 地类编码 字段 分组先用 substr(dlbm, 1, 2) 后期修改为 不需要截取前两位  比如不需要 substr(dlbm, 1, 2); 
+        If public_currentLayerSchemaName.ToLower() = "dltb" And groupFieldExpression.ToLower() = "dlbm" Then
+            groupFieldExpression = "substr(dlbm, 1, 2)"
+        End If
         xzqbmGroupExpression = xzqbmFieldENName
         If xzqbmGroupExpression Is Nothing Then
             MsgBox("行政区分组表达式【" & xzqbmGroupExpression & "】为空 请检查")
@@ -568,7 +569,7 @@ Module Module1
             i = i + 1
         Next
 
-        For rowIndex As Integer = 1 To t.Rows.Count
+        For rowIndex As Integer = 0 To t.Rows.Count - 1
             Dim xzqmc = t.Rows(rowIndex)(xzqColName)
 
             If xzqDic.ContainsKey(xzqmc) Then
@@ -712,8 +713,11 @@ Module Module1
         Dim smcChName = public_smcChName
         Dim sjdmName = "djdm"
         Dim stasticCol = 3
-        groupFieldExpression = public_currentGroupFieldName
-
+        groupFieldExpression = public_currentGroupFieldName & ""
+        'TBD 分组字段的分组表达式 开发环境 生产环境 地类编码 字段 分组先用 substr(dlbm, 1, 2) 后期修改为 不需要截取前两位  比如不需要 substr(dlbm, 1, 2); 
+        If public_currentLayerSchemaName.ToLower() = "dltb" And groupFieldExpression.ToLower() = "dlbm" Then
+            groupFieldExpression = "substr(dlbm, 1, 2)"
+        End If
         xzqbmGroupExpression = xzqbmFieldENName
         If xzqbmGroupExpression Is Nothing Then
             MsgBox("行政区分组表达式【" & xzqbmGroupExpression & "】为空 请检查")
@@ -797,9 +801,9 @@ Module Module1
             End If
 
             If String.IsNullOrEmpty(sjdmValue) Then
-                innerSql = innerSql & "select '" & dataYear & "' As {8}, {3} ""{9}"", sum({4}) {4} from {5}" & dataYearTbNameSuffix & " group by {3} "
+                innerSql = innerSql & "select '" & dataYear & "' As {8}, {2} ""{9}"", sum({4}) {4} from {5}" & dataYearTbNameSuffix & " group by {2} "
             Else
-                innerSql = innerSql & "select '" & dataYear & "' As {8}, {3} ""{9}"", sum({4}) {4} from {5}" & dataYearTbNameSuffix & " where {1} like '{10}%' group by {3} "
+                innerSql = innerSql & "select '" & dataYear & "' As {8}, {2} ""{9}"", sum({4}) {4} from {5}" & dataYearTbNameSuffix & " where {1} like '{10}%' group by {2} "
             End If
             innerSql = innerSql & " Union All "
         Next
@@ -845,7 +849,6 @@ Module Module1
         Forms("加载").Close()
 
         MainTable = t
-
         t.Visible = True
 
 
@@ -871,9 +874,9 @@ Module Module1
 
 
         Dim groupLBString As String
-        Dim datayearsString As String 'y 轴 选中年份列表名称列表 
-        Dim groupLBStringList() As String 'x 轴 选中分组类别名称列表 
-        Dim datayearStringList As String()  'Y维度为 分组的类别
+        Dim datayearsString As String 'x  轴 选中年份列表名称列表 
+        Dim groupLBStringList() As String 'y 轴 选中分组类别名称列表 
+        Dim datayearStringList As String()  'x 维度为 分组的类别
         Dim groupFieldColName As String
         groupFieldColName = t.Cols(1).Name '比如 地类编码
         ' 获取 年份列表 和 分组类别 
@@ -894,7 +897,7 @@ Module Module1
         datayearStringList = datayearsString.Split(","c)
 
 
-        Dim valueDeList As Double(,) = New Double(groupLBStringList.Length, datayearStringList.Length) {} '二维数组 记录x,y维度上的统计值
+        Dim valueDeList As Double(,) = New Double(datayearStringList.Length, groupLBStringList.Length) {} '二维数组 记录x,y维度上的统计值
         Dim groupLBDic As Dictionary(Of String, Short) = New Dictionary(Of String, Short)
 
         Dim i = 0
@@ -911,13 +914,13 @@ Module Module1
             i = i + 1
         Next
 
-        For rowIndex As Integer = 1 To t.Rows.Count
+        For rowIndex As Integer = 0 To t.Rows.Count - 1
             Dim groupLB = t.Rows(rowIndex)(groupFieldColName)
 
             If groupLBDic.ContainsKey(groupLB) Then
                 ' 先固定获取 lbStringList(0) 列的值到  二维数组的对用行 列下标下  
                 For Each datayear As String In datayearStringList
-                    valueDeList(groupLBDic(groupLB), dataYearDic(datayear)) = valueDeList(groupLBDic(groupLB), dataYearDic(datayear)) + t.Rows(rowIndex)(datayear)
+                    valueDeList(dataYearDic(datayear), groupLBDic(groupLB)) = valueDeList(dataYearDic(datayear), groupLBDic(groupLB)) + t.Rows(rowIndex)(datayear)
                 Next
             End If
         Next
@@ -927,46 +930,45 @@ Module Module1
         Chart = Forms("图表展示").Controls("Chart1") ' 引用窗口中的图表
         Chart.SeriesList.Clear() '清除图表原来的图系
         Chart.LegendVisible = True '显示图例
-
-        Dim sum As Double = 0
-        '遍历 二维 （即列向）
-        For colIndex As Integer = 0 To valueDeList.GetLength(1) - 1
-            sum = sum + valueDeList(0, colIndex)
-        Next
-
         Chart.AxisX.ClearValueLabel()
         If chartType = "饼状图" Then
+            Dim sum As Double = 0
+            '遍历 二维 （即列向）
+            For rowIndex As Integer = 0 To valueDeList.GetLength(0) - 1
+                sum = sum + valueDeList(rowIndex, 0)
+            Next
             Chart.VisualEffect = True '加上这一行,让你的图表更漂亮
             Chart.ChartType = ChartTypeEnum.Pie '图表1类型改为Bar(条形)
             For Each datayear As String In datayearStringList
                 Series = Chart.SeriesList.Add() '增加一个图系
                 Series.Length = 1 '一个系列只能包括一个值
-                Series.Text = datayear & "(" & valueDeList(0, dataYearDic(datayear)) & ")" '设置图系的标题
-                Series.DataLabelText = Math.Round(valueDeList(0, dataYearDic(datayear)) * 100 / sum, 2) & "%" '计算百分比
-                Series.Y(0) = valueDeList(0, dataYearDic(datayear)) '指定值
+                Series.Text = datayear & groupLBStringList(0) & "(" & valueDeList(dataYearDic(datayear), 0) & ")" '设置图系的标题
+                Series.DataLabelText = Math.Round(valueDeList(dataYearDic(datayear), 0) * 100 / sum, 2) & "%" '计算百分比
+                Series.Y(0) = valueDeList(dataYearDic(datayear), 0) '指定值
 
             Next
             Chart.LegendCompass = CompassEnum.East '图列显示在东方(右方)
 
         Else
 
-            Chart.ChartType = ChartTypeEnum.Bar
+            Chart.ChartType = ChartTypeEnum.XYPlot
 
-            For groupLB As Integer = 0 To groupLBStringList.Count - 1
-                Chart.AxisX.SetValueLabel(groupLB, groupLBStringList(groupLB)) 'x轴指定字符表示
+            For datayearIndex As Integer = 0 To datayearStringList.Count - 1
+                Chart.AxisX.SetValueLabel(datayearIndex, datayearStringList(datayearIndex)) 'x轴指定字符表示
             Next
             Chart.AxisY.Text = RibbonTabs("数据统计")("功能组2")("统计单位").Text 'x轴指定字符表示
 
-            For Each datayear As String In datayearStringList
+            For Each groupLB As String In groupLBStringList
                 Series = Chart.SeriesList.Add() '增加一个图系
-                Series.Length = groupLBStringList.Length
+                Series.Length = datayearStringList.Length
                 Series.TooltipText = "X = {#XVAL}, Y = {#YVAL}"
-                Series.Text = datayear
-                For groupLBIndex As Integer = 0 To groupLBStringList.Count - 1
-                    Series.X(groupLBIndex) = groupLBIndex
-                    Series.Y(groupLBIndex) = valueDeList(groupLBDic(groupLBStringList(groupLBIndex)), dataYearDic(datayear))
+                Series.Text = groupLB
+                For datayearIndex As Integer = 0 To datayearStringList.Count - 1
+                    Series.X(datayearIndex) = datayearIndex
+                    Series.Y(datayearIndex) = valueDeList(dataYearDic(datayearStringList(datayearIndex)), groupLBDic(groupLB))
                 Next
             Next
+
             Chart.AxisX.AnnoWithLabels = True
         End If
     End Sub
