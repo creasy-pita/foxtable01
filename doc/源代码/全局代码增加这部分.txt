@@ -1,0 +1,5 @@
+    Public public_xzqbmFieldENName As String = "qxdm" ' 行政区编码信息字段 固定为 qxdm
+    Public public_xzqbmGroupExpression As String = "qxdm" '行政区编码 分组 表达式
+    Public public_qxdmChName = "区县代码" 'qxdm 在列头显示的名称
+    Public public_qxmcChName = "区县名称" 'qxmc 在列头显示的名称
+    Public public_smcChName = "市级名称" 'djmc 在列头显示的名称

@@ -1,0 +1,18 @@
+Dim Builder As New ADOXBuilder
+Builder.Open()
+MsgBox(Builder.Tables("表A").Gettype().FullName)'Foxtable.ADOTable
+MsgBox(Tables("表A").Gettype().FullName)'Foxtable.Table
+
+Dim cmd As New SQLCommand
+Dim dt As DataTable
+cmd.ConnectionName = "gisq113"
+Dim sql As String = "select substr(zldwdm, 1, 6),substr(dlbm, 1, 2),sum(tbmj) as tbmj from DLTB where rownum<100 group by  substr(zldwdm, 1, 6),substr(dlbm, 1, 2)"
+MsgBox(sql)
+cmd.CommandText = sql
+dt = cmd.ExecuteReader()
+
+
+MsgBox(dt.Gettype().FullName)'Foxtable.Table
+
+
+Builder.Close()

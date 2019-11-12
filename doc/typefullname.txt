@@ -1,0 +1,12 @@
+Dim Type1 As Type = DataTables("表B").Gettype()
+Dim typeName As String = Type1.FullName
+MsgBox(typeName)
+Type1 = Tables("表B").Gettype()
+ typeName  = Type1.FullName
+MsgBox(typeName)
+
+Dim Builder As New ADOXBuilder
+Builder.Open()
+MsgBox(Builder.Tables("表A").Gettype().FullName)'Foxtable.ADOTable
+MsgBox(Tables("表A").Gettype().FullName)'Foxtable.Table
+Builder.Close()

@@ -345,7 +345,7 @@ Module Module1
             MsgBox("通过传递 名称【" & public_currentDataBaseConnection & "】调用接口GISQ.Framework.DbConnectHelper.GetDbConnection 获取的 数据库连接信息为空 请检查DbConnectionInfo的配置")
             Return
         End If
-        Dim connectString As String = "Provider=MSDAORA.1;" & dbConnectionInfo.GetConnectString()
+        Dim connectString As String = "Provider=OraOLEDB.Oracle.1;" & dbConnectionInfo.GetConnectString()
 
         If connectString Is Nothing Then
             MsgBox("通过 名称【" & public_currentDataBaseName & "】获取的DatabaseSchema 获取不到数据库连接串信息 请检查")
@@ -430,7 +430,6 @@ Module Module1
             MsgBox("行政区字段【" & xzqbmFieldENName & "】为空 请检查")
             Return
         End If
-        dwzhbl = 1
         If dwzhbl = 0 Then
             MsgBox("单位转换比例没有设置 请检查")
             Return
@@ -461,7 +460,6 @@ Module Module1
             Next
         Next
 
-        MainTable = t
         t.GroupAboveData = True '指定分组行位于数据行之上
         t.SubtotalGroups.Clear() '清除原有的分组
         Dim g As SubtotalGroup '定义一个新的分组
@@ -479,6 +477,13 @@ Module Module1
         t.Subtotal(True) '生成汇总模式
 
         t.Visible = True
+        MainTable = t
+        Forms("加载").Close()
+        If Forms("图表展示").Opened Then
+            Forms("图表展示").Close
+            Forms("图表展示").Open
+        End If
+
 
 
         'DataTables("表A").Fill("select * from (select substr(zldwdm, 1, 6) zldwdm,substr(dlbm, 1, 2) dlbm,sum(tbmj) tbmj from dltb where ROWNUM<10000 group by substr(zldwdm, 1, 6) ,substr(dlbm, 1, 2))  pivot(sum(tbmj) for  dlbm in (" & pivotNames & "))", "gisq113", True)
@@ -665,7 +670,7 @@ Module Module1
             MsgBox("通过传递 名称【" & public_currentDataBaseConnection & "】调用接口GISQ.Framework.DbConnectHelper.GetDbConnection 获取的 数据库连接信息为空 请检查DbConnectionInfo的配置")
             Return
         End If
-        Dim connectString As String = "Provider=MSDAORA.1;" & dbConnectionInfo.GetConnectString()
+        Dim connectString As String = "Provider=OraOLEDB.Oracle.1;" & dbConnectionInfo.GetConnectString()
 
         If connectString Is Nothing Then
             MsgBox("通过 名称【" & public_currentDataBaseName & "】获取的DatabaseSchema 获取不到数据库连接串信息 请检查")
@@ -749,17 +754,24 @@ Module Module1
         '加载年份
         Dim dataYearDic As Dictionary(Of String, Boolean) = New Dictionary(Of String, Boolean)
         Dim dataYearList As String()
-        Dim year As Integer = Val(RibbonTabs("数据统计")("功能组3")("TextYear").Text)
+        Dim year As Integer = 0
+        Try
+            year = Val(RibbonTabs("数据统计")("功能组3")("TextYear").Text)
+        Catch ex As Exception
+            MsgBox("统计年份请输入4位的年份值")
+            Return
+        End Try
+
 
         Dim now As Integer = Format(Date.Now, "yyyy")
         If year > now Or year < 1949 Then
-            MsgBox("统计年份输入有误")
+            MsgBox("统计年份请输入当前年份以前的年份，这样报表会从输入年份到当前年份展示统计值")
             Return
         Else
             Dim ssc As SqlSugar.SqlSugarClient
             ssc = FoxtableXZQ.XZQClass.GetSqlSugarClient(dbConnectionInfo)
 
-            If year < now Then
+            If year <= now Then
 
                 For i As Integer = year To now
                     Dim TableName As String = public_currentLayerSchemaName
@@ -821,7 +833,6 @@ Module Module1
         'output.show(sql)
         Dim stasticTableName As String = "表A"
         Dim t As Table = Tables(stasticTableName)
-        MainTable = t
         t.Visible = False
         Forms("加载").Open()
         DataTables(stasticTableName).Fill(sql, public_currentDataBaseConnection, True)
@@ -844,10 +855,12 @@ Module Module1
             Next
         Next
         DataTables("表A").DataCols.Add("计算", GetType(Double))
-        Forms("图表展示").Close()
-        Forms("图表展示").Open()
-        Forms("加载").Close()
 
+        Forms("加载").Close()
+        If Forms("图表展示").Opened Then
+            Forms("图表展示").Close
+            Forms("图表展示").Open
+        End If
         MainTable = t
         t.Visible = True
 

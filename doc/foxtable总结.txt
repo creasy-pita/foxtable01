@@ -1,0 +1,52 @@
+问题
+	Builder.Tables("表A") 的类型再那个dll 中，我想引入到vs 看下里边的 一些方法的结构
+	
+	Builder.Tables("表A") 的 Builder特点
+		直接修改外部表，内部表
+			列，表名改变时 需要重新打开项目（不满足我们 安徽动态修改列的需求）
+		参考资料：
+	
+	
+	
+	需求
+		我们现在要实现一个统计的需求
+			数据来源表在很多个 oracle 数据库 中，有很多表，
+			根据用户的筛选来确定要加载那个表和统计
+			
+			比如用户选择了对快递信息进行查询（那么我们要去  确定数据库连接 和 快递信息这个表），并按快递的目的地的城市和快递紧急级别（普通件和加急件）进行分组 并对快递费进行统计计数，而且快递紧急级别这个需要行转列横向显示
+				
+	开发上的问题
+		数据源需要动态指定
+		展现的表 的结构和数据会根据用户的统计对象而不断变化
+			目前发现 Builder.Tables("表A") 来创建动态表 是需要重新打开foxtable项目,不能随时界面上刷新
+			是不是可以使用 临时表 来创建动态表 和 展现数据 并能实时刷新展现的表结构和数据
+				临时表的这个如何实现 哪些例子可以参考
+		
+		由于项目急 ，我们一边看foxtable的文档一边再做，进度缓慢 所以我们希望得到你们的帮助，尽快确定一个比较好的实现方案，少走弯路
+
+			//，并对数据进行 地域，地类的两个字段分组并对面积进行统计计数，而且地类这个需要行转列横向显示			
+			
+	因为有很多表要查询，而且时动态的确定要查询哪个表， 那么怎么获取并展现到table中
+	
+
+DataTable  Table WinForm.Table
+	Foxtable.DataTable Foxtable.Table Foxtable.WinForm.Table 
+ DataTables （已加载数据到DataTable）的数据查询
+
+	Dim cmd As new SQLCommand
+	cmd.CommandText = "Select 部门,职务 from {员工} Where 姓名 = '王伟'"
+	cmd.ConnectionName = "数据源名称"
+	
+ 源数据库中的查询
+	Dim cmd As new SQLCommand
+	cmd.CommandText = "Select 部门,职务 from 员工 Where 姓名 = '王伟'"
+	cmd.ConnectionName = "数据源名称"
+	
+	
+问题  
+	1 Import of type 'GISQ.Util.Data.DbConnectionInfo' from assembly or module '<unknown>' failed.
+	问题解决
+	单独把GISQ.Util.Data.DbConnectionInfo 加到一个新项目  来替换 原来的 GISQ.Util
+	GISQ.Util.Data.DbConnectionInfo e = GISQ.Framework.DbConnectHelper.GetDbConnection("xz_tdly");	
+	
+	是因为 GISQ.Framework.dll GISQ.Framework.UI.dll 做了 生成dll 的加密

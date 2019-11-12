@@ -1,0 +1,131 @@
+
+        '从表A获取数值 判断是否已经有统计数据
+        Dim stasticTableName As String = "表A"
+        Dim t As Table = Tables(stasticTableName)
+        If t Is Nothing Then
+            MsgBox(stasticTableName & "为空，请检查")
+            Return
+        End If
+        If t.Rows.Count = 0 Then
+            MsgBox(stasticTableName & "数据为空，请先统计报表数据")
+            Return
+        End If
+        '只有一行数据而且  00 位置为空时 表示没有数据
+        If t.Rows.Count = 1 And t.Rows(0)(0) = "" Then
+            MsgBox(stasticTableName & "数据为空,请先统计报表数据")
+            Return
+        End If
+
+
+        Dim qxmcString As String
+        Dim sjmcString As String
+        Dim lbsString As String
+        Dim qxmcStringList() As String '选中区县名称列表 
+        Dim sjmcStringList() As String '选中地级市名称列表 如果区县名称列表不为空则使用区县名称列表画图 
+        Dim xzqStringList() As String  'x维度  为行政区
+        Dim xzqColName As String '行政区匹配时使用的列名 选中区县名称列表 使用public_qxmcChName 否则 public_smcChName
+
+        ' 获取 区县
+        Dim CheckedComboCol As WinForm.CheckedComboBox
+        CheckedComboCol = Forms("图表展示").Controls("CheckedComboCol")
+        output.show(CheckedComboCol.Text)
+        lbsString = CheckedComboCol.Text
+        Dim ComboShi As WinForm.ComboBox
+        ComboShi = Forms("图表展示").Controls("ComboShi")
+        output.show(ComboShi.Text)
+        sjmcString = ComboShi.Text
+        Dim ComboXian As WinForm.ComboBox
+        ComboXian = Forms("图表展示").Controls("ComboXian")
+        output.show(ComboXian.Text)
+        qxmcString = ComboXian.Text
+
+        If String.IsNullOrEmpty(qxmcString) And String.IsNullOrEmpty(sjmcString) Then
+            MsgBox("请先选择行政区")
+            Return
+        End If
+        If String.IsNullOrEmpty(lbsString) Then
+            MsgBox("请先选择分组类别")
+            Return
+        End If
+
+        sjmcStringList = {"合肥市", "阜阳市", "安庆市"}
+        Dim lbStringList As String() = {"耕地_01", "园地_02", "林地_03"} 'Y维度为 分组的类别
+        If Not String.IsNullOrEmpty(qxmcString) Then
+            qxmcStringList = qxmcString.Split(","c)
+        Else
+            sjmcStringList = sjmcString.Split(","c)
+        End If
+        lbStringList = lbsString.Split(","c)
+
+        If qxmcStringList IsNot Nothing Then
+            xzqStringList = qxmcStringList
+            xzqColName = public_qxmcChName
+        Else
+            xzqStringList = sjmcStringList
+            xzqColName = public_smcChName
+        End If
+
+        Dim valueDeList As Double(,) = New Double(xzqStringList.Length, lbStringList.Length) {} '二维数组 记录x,y维度上的统计值
+        Dim xzqDic As Dictionary(Of String, Short) = New Dictionary(Of String, Short)
+
+        Dim i = 0
+        ' 字典用于保存行政区名称,和对应的位置 后续用于通过名称找到二维数组的下标位置
+        For Each xzq As String In xzqStringList
+            xzqDic.Add(xzq, i)
+            i = i + 1
+        Next
+        i = 0
+        ' 字典用于保存类别名称,和对应的位置 后续用于通过名称找到二维数组的下标位置
+        Dim lbDic As Dictionary(Of String, Short) = New Dictionary(Of String, Short)
+        For Each lb As String In lbStringList
+            lbDic.Add(lb, i)
+            i = i + 1
+        Next
+
+        For rowIndex As Integer = 1 To t.Rows.Count
+            Dim xzqmc = t.Rows(rowIndex)(xzqColName)
+
+            If xzqDic.ContainsKey(xzqmc) Then
+                ' 先固定获取 lbStringList(0) 列的值到  二维数组的对用行 列下标下  
+                For Each lb As String In lbStringList
+                    valueDeList(xzqDic(xzqmc), lbDic(lb)) = valueDeList(xzqDic(xzqmc), lbDic(lb)) + t.Rows(rowIndex)(lb)
+                Next
+            End If
+        Next
+        Dim chartType = Forms("图表展示").Controls("ComboBox1").Text '"饼状图"
+        Dim Chart As WinForm.Chart '定义一个图表变量
+        Dim Series As WinForm.ChartSeries '定义一个图系变量
+        Chart = Forms("图表展示").Controls("Chart1") ' 引用窗口中的图表
+        Chart.SeriesList.Clear() '清除图表原来的图系
+        Chart.LegendVisible = True '显示图例
+        Chart.AxisX.ClearValueLabel()
+        If chartType = "饼状图" Then
+            Chart.VisualEffect = True '加上这一行,让你的图表更漂亮
+            Chart.ChartType = ChartTypeEnum.Pie '图表1类型改为Bar(条形)
+            For Each lb As String In lbStringList
+                Series = Chart.SeriesList.Add() '增加一个图系
+                Series.Length = 1 '一个系列只能包括一个值
+                Series.Text = lb & "(" & valueDeList(0, lbDic(lb)) & ")" '设置图系的标题
+                Series.Y(0) = valueDeList(0, lbDic(lb)) '指定值
+            Next
+            Chart.LegendCompass = CompassEnum.East '图列显示在东方(右方)
+
+        Else
+
+            Chart.ChartType = ChartTypeEnum.Bar
+
+            For xzqIndex As Integer = 0 To xzqStringList.Count - 1
+                Chart.AxisX.SetValueLabel(xzqIndex, xzqStringList(xzqIndex)) 'x轴指定字符表示
+            Next
+            For Each lb As String In lbStringList
+                Series = Chart.SeriesList.Add() '增加一个图系
+                Series.Length = xzqStringList.Length
+                Series.TooltipText = "X = {#XVAL}, Y = {#YVAL}"
+                Series.Text = lb.Substring(0, lb.LastIndexOf("_")) '截取去除下划线及编码部分
+                For xzqIndex As Integer = 0 To xzqStringList.Count - 1
+                    Series.X(xzqIndex) = xzqIndex
+                    Series.Y(xzqIndex) = valueDeList(xzqDic(xzqStringList(xzqIndex)), lbDic(lb))
+                Next
+            Next
+            Chart.AxisX.AnnoWithLabels = True
+        End If

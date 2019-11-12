@@ -1,0 +1,170 @@
+项目事件
+
+AfterOpenProject
+
+Forms("主窗口").Open()
+
+计划管理
+
+表事件
+
+窗口表事件
+
+窗口与控件事件
+
+主窗口_AfterLoad
+
+Dim currentDataBaseName As String
+        Dim currentDataSetSchemaName As String
+        currentDataBaseName = "现状_土地利用_土地调查" '第三级
+        currentDataSetSchemaName = "TDDC_TDDC" '第四级
+
+        'MsgBox(GISQ.DataManager.RuleConfigHelper.GetDictionariesFromLocal().Count.ToString())
+        Dim ds As GISQ.DataManager.Schema.DatabaseSchema = GISQ.DataManager.Schema.SchemaHelper.GetDatabaseSchemaByName(currentDataBaseName)
+        Dim dsSchema As GISQ.DataManager.Schema.DatasetSchema
+public_currentDataBaseConnection = ds.DefaultConnection        
+For Each schema As GISQ.DataManager.Schema.DatasetSchema In ds.DatasetSchemas
+            If schema.Name = currentDataSetSchemaName Then
+                dsSchema = schema
+            End If
+        Next
+        '获取图层列表
+        Dim currentLayerSchemaDic As Dictionary(Of String, String) = New Dictionary(Of String, String)()
+
+        Dim stasticLayerComboListString As String
+        For Each layer As GISQ.DataManager.Schema.LayerSchema In dsSchema.LayerSchemas
+            If Not currentLayerSchemaDic.ContainsKey(layer.AliasName) Then
+                currentLayerSchemaDic.Add(layer.AliasName, layer.Name)
+                stasticLayerComboListString += layer.AliasName + "|"
+            End If
+        Next
+        public_currentLayerSchemaDic = currentLayerSchemaDic
+        '挂接图层列表到 combobox中
+        Dim layerSchemaCombobox As WinForm.ComboBox
+        layerSchemaCombobox = Forms("主窗口").Controls("layerSchemaCombobox")
+        layerSchemaCombobox.ComboList = stasticLayerComboListString
+
+主窗口_groupFieldCmb_SelectedIndexChanged
+
+Dim cm As WinForm.ComboBox = e.Form.Controls("groupFieldCmb")
+public_currentGroupFieldName = public_GroupFieldDic(cm.Text)
+cm = e.Form.Controls("layerSchemaCombobox")
+public_currentLayerSchemaName = public_currentLayerSchemaDic(cm.Text)
+
+主窗口_layerSchemaCombobox_SelectedIndexChanged
+
+Dim cm As WinForm.ComboBox = e.Form.Controls("layerSchemaCombobox")
+        'MsgBox(cm.Text)
+
+        Dim currentDataBaseName As String
+        Dim currentDataSetSchemaName As String
+        Dim currentLayerSchemaName As String
+        currentDataBaseName = "现状_土地利用_土地调查" '第三级
+        currentDataSetSchemaName = "TDDC_TDDC" '第四级
+        currentLayerSchemaName = "DLTB" '第五级
+        'MsgBox(public_currentLayerSchemaDic.Count)
+        currentLayerSchemaName = public_currentLayerSchemaDic(cm.Text)
+       ' MsgBox(currentLayerSchemaName)
+        Dim ds As GISQ.DataManager.Schema.DatabaseSchema = GISQ.DataManager.Schema.SchemaHelper.GetDatabaseSchemaByName("现状_土地利用_土地调查")
+        Dim dsSchema As GISQ.DataManager.Schema.DatasetSchema
+        For Each schema As GISQ.DataManager.Schema.DatasetSchema In ds.DatasetSchemas
+            If schema.Name = currentDataSetSchemaName Then
+                dsSchema = schema
+            End If
+        Next
+        Dim groupFieldDic As Dictionary(Of String, String) = New Dictionary(Of String, String)()
+        Dim groupFieldComboListString As String
+        '取出 currentLayerSchema
+        Dim currentLayerSchema As GISQ.DataManager.Schema.LayerSchema
+        For Each layer As GISQ.DataManager.Schema.LayerSchema In dsSchema.LayerSchemas
+            If layer.Name = currentLayerSchemaName Then
+                currentLayerSchema = layer
+            End If
+        Next
+        '获取图层中字段列表 作为分组字段
+        Dim currentGroupFieldDic As Dictionary(Of String, String) = New Dictionary(Of String, String)()
+        Dim currentGroupFieldComboListString As String
+        For Each fieldSchema As GISQ.DataManager.Schema.FieldSchema In currentLayerSchema.FieldSchemas
+            If fieldSchema.FieldType = GISQ.Util.Data.gisqFieldType.Double Or fieldSchema.FieldType = GISQ.Util.Data.gisqFieldType.Float Then 'TBD 分组字段 数据类型
+                Continue For
+            End If
+            If Not currentGroupFieldDic.ContainsKey(fieldSchema.AliasName) Then
+                currentGroupFieldDic.Add(fieldSchema.AliasName, fieldSchema.Name)
+                currentGroupFieldComboListString += fieldSchema.AliasName + "|"
+            End If
+        Next
+public_GroupFieldDic = currentGroupFieldDic ' 复制到foxtable 全局变量中方便共享
+        '挂接分组字段 列表到 combobox 中
+        Dim groupFieldCmb As WinForm.ComboBox
+        groupFieldCmb = Forms("主窗口").Controls("groupFieldCmb")
+        groupFieldCmb.ComboList = currentGroupFieldComboListString
+
+主窗口_统计_Click
+
+Dim cmd As New SqlCommand
+        Dim dt As DataTable
+        Dim pivotNames As String
+        fzzdname = "地类编码" 'TBD 临时用 地类图斑
+
+        '从字段中根据分组字段的 中文名称 获取动态列信息(包括 名称 和 值)
+        ListDic = GISQ.DataManager.RuleConfigHelper.Dictionaries
+        Dim currentGroupFieldRelationDic As GISQ.DataManager.Dictionary
+        For Each dic As GISQ.DataManager.Dictionary In ListDic
+            If dic.DictName = fzzdname Then
+                currentGroupFieldRelationDic = dic
+            End If
+        Next
+
+        For Each codeName As GISQ.DataManager.CodeName In currentGroupFieldRelationDic.CodeNames
+            pivotNames &= "'" & codeName.Code & "'" & codeName.Name & "_" & codeName.Code & ","
+        Next
+        pivotNames = pivotNames.TrimEnd(","c)
+        ' 根据选择的数据库类型 图层 分组 和 统计计数字段 组装 数据源连接串,sql 
+
+        cmd.ConnectionName = "gisq113"
+        'Dim sql As String = "select substr(zldwdm, 1, 6),substr(dlbm, 1, 2),sum(tbmj) as tbmj from DLTB where rownum<100 group by  substr(zldwdm, 1, 6),substr(dlbm, 1, 2)"
+        'Dim sql As String = "select substr(zldwdm, 1, 6),substr(" & public_currentGroupFieldName & ", 1, 2),sum(tbmj) as tbmj from " & public_currentLayerSchemaName & " where rownum<100 group by  substr(zldwdm, 1, 6),substr(" & public_currentGroupFieldName & ", 1, 2)"
+
+        Dim sql As String = "select * from (select substr(zldwdm, 1, 6),substr(dlbm, 1, 2) dlbm,sum(tbmj) tbmj from dltb where ROWNUM<100 group by substr(zldwdm, 1, 6) ,substr(dlbm, 1, 2))  pivot(sum(tbmj) for  dlbm in (" & pivotNames & "))"
+        MsgBox(sql)
+
+自定义函数
+
+全局代码
+
+Default
+
+Public public_currentLayerSchemaDic As Dictionary(Of String, String) = New Dictionary(Of String, String)()
+Public public_GroupFieldDic As Dictionary(Of String, String) = New Dictionary(Of String, String)()
+Public public_currentDataBaseName As String  
+Public public_currentDataBaseConnection As String ' 数据库连接名 可以通过此名称通过接口获取 数据库连接信息 
+Public public_currentLayerSchemaName As String ' 当前选中的图层表英文名
+Public public_currentGroupFieldName As String ' 当前选中的分组字段英文名
+Public public_currentGroupFieldChName As String ' 当前选中分组字段中文名 可以通过此名称通过接口获取字典列表作为具体分类
+Public public_currentTotalFieldEnName As String ' 当前选中统计计数字段英文名 分组后按此字段统计计数
+
+
+
+Public ListDic As New List(Of GISQ.DataManager.Dictionary)
+Public ListFirst As New List(Of GISQ.DataManager.CodeName)
+Public ListSecond As New List(Of GISQ.DataManager.CodeName)
+Public ListThird As New List(Of GISQ.DataManager.CodeName)
+Public ListFourth As New List(Of GISQ.DataManager.Schema.DatasetSchema)
+Public ListFifth As New List(Of GISQ.DataManager.Schema.LayerSchema)
+Public ListSixth As New List(Of GISQ.DataManager.Schema.FieldSchema)
+Public ds As New GISQ.DataManager.Schema.DatabaseSchema
+Public bname As String '当前选中的图层表英文名
+Public fzzdname As String '当前选中分组字段中文名 可以通过此名称通过接口获取字典列表作为具体分类
+
+菜单事件
+
+---------------------------
+ahdev.Form.16cd2efe
+---------------------------
+select * from (select substr(zldwdm, 1, 6) zldwdm,substr(dlbm, 1, 2) DLBM, 
+sum(tbmj) tbmj from DLTB where ROWNUM<10000 group by substr(zldwdm, 1, 6), zldwdm) 
+pivot sum(tbmj) For DLBM In ('00' "00",'01' "01",'02' "02",'03' "03",'04' "04",'05' "05",'06' "06",'07' "07",'08' "08",'09' "09",'10' "10",'11' "11",'12' "12") 
+---------------------------
+OK   
+---------------------------
+

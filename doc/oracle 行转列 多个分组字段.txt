@@ -1,0 +1,87 @@
+create table demo(id int,name varchar(20),nums int,xzqm varchar(2));  ---- 创建表
+
+--drop table demo
+
+insert into demo values(1, '苹果', 1000,'1');
+insert into demo values(2, '苹果', 2000,'1');
+insert into demo values(3, '苹果', 4000,'2');
+insert into demo values(4, '橘子', 5000,'1');
+insert into demo values(5, '橘子', 3000,'1');
+insert into demo values(5, '橘子', 2000,'1');
+insert into demo values(5, '橘子', 1000,'2');
+insert into demo values(6, '葡萄', 3500,'1');
+insert into demo values(6, '葡萄', 3500,'2');
+insert into demo values(6, '葡萄', 3500,'2');
+insert into demo values(7, '芒果', 4200,'1');
+insert into demo values(7, '芒果', 4200,'1');
+insert into demo values(8, '芒果', 5500,'2');
+insert into demo values(8, '芒果', 5500,'2');
+
+select * from (select name,xzqm, sum(nums) nums from demo group by xzqm,name ) a order by a.name;
+
+--按 xzqm name 分组 对nums 求和 ，再对 name 进行行转列
+select * from (select name,xzqm, sum(nums) nums from demo group by xzqm,name) pivot (sum(nums) for name in ('苹果' 苹果, '橘子' 橘子, '葡萄' 葡萄, '芒果' 芒果));
+
+-- 对 分组的字段dlbm  加一个截取前2位的分组
+select * from (select substr(zldwdm, 1, 6),substr(dlbm, 1, 2) dlbm,sum(tbmj) tbmj from dltb where ROWNUM<100 group by substr(zldwdm, 1, 6) ,substr(dlbm, 1, 2))  
+pivot(sum(tbmj) for  dlbm in ('03' aa,'02' b));
+
+
+---------------------------
+ahdev.Form.16cd2efe
+---------------------------
+select * from (select substr(zldwdm, 1, 6),substr(dlbm, 1, 2) dlbm,sum(tbmj) tbmj from dltb where ROWNUM<100 group by substr(zldwdm, 1, 6) ,substr(dlbm, 1, 2))  pivot(sum(tbmj) for  dlbm in ('00'湿地_00,'01'耕地_01,'02'种植园用地_02,'03'林地_03,'04'草地_04,'05'商业服务业用地_05,'06'工矿用地_06,'07'住宅用地_07,'08'公共管理与公共服务用地_08,'09'特殊用地_09,'10'交通运输用地_10,'11'水域及水利设施用地_11,'12'其他土地_12))
+---------------------------
+OK   
+---------------------------
+select * from (select substr(zldwdm, 1, 6) zldwdm,substr(dlbm, 1, 2) dlbm,sum(tbmj) tbmj from dltb where ROWNUM<10000 group by substr(zldwdm, 1, 6) ,substr(dlbm, 1, 2))  pivot(sum(tbmj) for  dlbm in ('00'"湿地_00",'01'"耕地_01",'02'"种植园用地_02",'03'"林地_03",'04'"草地_04",'05'"商业服务业用地_05",'06'"工矿用地_06",'07'"住宅用地_07",'08'"公共管理与公共服务用地_08",'09'"特殊用地_09",'10'"交通运输用地_10",'11'"水域及水利设施用地_11",'12'"其他土地_12"))
+
+DataTables("统计表1").Fill("select * from (select substr(zldwdm, 1, 6) zldwdm,substr(dlbm, 1, 2) dlbm,sum(tbmj) tbmj from dltb where ROWNUM<10000 group by substr(zldwdm, 1, 6) ,substr(dlbm, 1, 2))  pivot(sum(tbmj) for  dlbm in ('00'湿地_00,'01'耕地_01,'02'种植园用地_02,'03'林地_03,'04'草地_04,'05'商业服务业用地_05,'06'工矿用地_06,'07'住宅用地_07,'08'公共管理与公共服务用地_08,'09'特殊用地_09,'10'交通运输用地_10,'11'水域及水利设施用地_11,'12'其他土地_12))", "gisq113", True)
+DataTables("统计表1").Fill("select * from (select substr(zldwdm, 1, 6) zldwdm,substr(dlbm, 1, 2) dlbm,sum(tbmj) tbmj from dltb where ROWNUM<10000 group by substr(zldwdm, 1, 6) ,substr(dlbm, 1, 2))  pivot(sum(tbmj) for  dlbm in ('00'"00",'01'"01",'02'"02",'03'"03",'04'"04",'05'"05",'06'"06",'07'"07",'08'"08",'09'"09",'10'"10",'11'"11",'12'"12"))
+","gisq113",True)
+
+DataTables("统计表1").Fill("select * from (select substr(zldwdm, 1, 6) zldwdm,substr(dlbm, 1, 2) dlbm,sum(tbmj) tbmj from dltb where ROWNUM<10000 group by substr(zldwdm, 1, 6) ,substr(dlbm, 1, 2))  pivot(sum(tbmj) for  dlbm in (" & pivotNames  & "))
+","gisq113",True)
+
+Dim b As New GroupTableBuilder("统计表2",DataTables("订单"))
+b.Groups.AddDef("产品") '根据产品分组
+b.Groups.AddDef("雇员")
+b.Totals.AddDef("金额") '对数量进行统计
+b.Build '生成统计表
+MainTable = Tables("统计表2")
+
+'DataTables("统计表1").Fill("
+select * from (select substr(zldwdm, 1, 6) zldwdm,substr(dlbm, 1, 2) dlbm,sum(tbmj) tbmj from dltb where ROWNUM<10000 group by substr(zldwdm, 1, 6) ,substr(dlbm, 1, 2))  pivot(sum(tbmj) for  dlbm in ('00'湿地_00,'01'耕地_01,'02'种植园用地_02,'03'林地_03,'04'草地_04,'05'商业服务业用地_05,'06'工矿用地_06,'07'住宅用地_07,'08'公共管理与公共服务用地_08,'09'特殊用地_09,'10'交通运输用地_10,'11'水域及水利设施用地_11,'12'其他土地_12))", "gisq113", True)
+DataTables("统计表1").Fill("select zldwdm,dlbm,tbmj from dltb where rownum <10","gisq113",True)
+'Dim b As New GroupTableBuilder("统计表2", DataTables("订单"))
+'b.Groups.AddDef("产品") '根据产品分组
+'b.Groups.AddDef("雇员")
+'b.Totals.AddDef("金额") '对数量进行统计
+'b.Build '生成统计表
+'MainTable = Tables("统计表2")
+
+        Dim pivotNames As String
+        fzzdname = "地类编码" 'TBD 临时用 地类图斑
+
+        '从字段中根据分组字段的 中文名称 获取动态列信息(包括 名称 和 值)
+        ListDic = GISQ.DataManager.RuleConfigHelper.Dictionaries
+        Dim currentGroupFieldRelationDic As GISQ.DataManager.Dictionary
+        For Each dic As GISQ.DataManager.Dictionary In ListDic
+            If dic.DictName = fzzdname Then
+                currentGroupFieldRelationDic = dic
+            End If
+        Next
+
+        For Each codeName As GISQ.DataManager.CodeName In currentGroupFieldRelationDic.CodeNames
+            pivotNames &= "'" & codeName.Code & "' """ & codeName.Code & ""","
+            'pivotNames &= "'" & codeName.Code & "'""" & codeName.Name & "_" & codeName.Code & ""","
+        Next
+
+        pivotNames = pivotNames.TrimEnd(","c)
+' output.show(pivotNames)
+DataTables("表A").Fill("select * from (select substr(zldwdm, 1, 6) zldwdm,substr(dlbm, 1, 2) dlbm,sum(tbmj) tbmj from dltb where ROWNUM<10000 group by substr(zldwdm, 1, 6) ,substr(dlbm, 1, 2))  pivot(sum(tbmj) for  dlbm in (" & pivotNames  & "))","gisq113",True)
+' output.show("select * from (select substr(zldwdm, 1, 6) zldwdm,substr(dlbm, 1, 2) dlbm,sum(tbmj) tbmj from dltb where ROWNUM<10000 group by substr(zldwdm, 1, 6) ,substr(dlbm, 1, 2))  pivot(sum(tbmj) for  dlbm in (" & pivotNames  & "))")
+
+
+
+"select substr(zldwdm, 1, 6),substr(" & public_currentGroupFieldName & ", 1, 2),sum(tbmj) as tbmj from " & public_currentLayerSchemaName & " where rownum<100 group by  substr(zldwdm, 1, 6),substr(" & public_currentGroupFieldName & ", 1, 2)"

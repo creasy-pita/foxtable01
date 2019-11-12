@@ -1,0 +1,109 @@
+        '根据选中的 第四层分类确定 获取数据库连接信息 并保存到 Connections中 
+        '需要用到全局变量有  
+        '    Public ds As New GISQ.DataManager.Schema.DatabaseSchema ->  public_currentDatabaseSchema
+        '    Public bname As String '表名称 -> public_currentLayerSchemaName
+        '   Public fzzdname As String '分组字段名称   -》public_currentGroupFieldChName 
+        '   public_currentGroupFieldChName 从 RibbonTabs("数据统计").Groups("功能组1").Items("工具栏1").Items("Combox6").Text
+
+        public_currentDatabaseSchema = ds
+        public_currentLayerSchemaName = bname
+        public_currentGroupFieldName = fzzdname '比如 "地类编码"
+        public_currentTotalFieldEnName = tjnrname '比如 "图斑面积：tbmj"
+
+        If public_currentGroupFieldName Is Nothing Then
+            MsgBox("分组字段名称为空 请检查")
+            Return
+        End If
+        If public_currentDatabaseSchema Is Nothing Then
+            MsgBox("通过配置名称【" & public_currentDataBaseName & "】获取的DatabaseSchema为空 请检查")
+            Return
+        End If
+        'TBD public_currentDatabaseSchema public_currentDataBaseConnection 处理为空的场景
+        public_currentDataBaseConnection = "Provider=MSDAORA.1;" & public_currentDatabaseSchema.DefaultConnection
+        If public_currentDataBaseConnection Is Nothing Then
+            MsgBox("通过 名称【" & public_currentDataBaseName & "】获取的DatabaseSchema 获取不到数据库连接名信息 请检查")
+            Return
+        End If
+        Dim dbConnectionInfo As GISQ.Util.Data.DbConnectionInfo = GISQ.Framework.DbConnectHelper.GetDbConnection(public_currentDataBaseConnection)
+        Dim connectString As String = dbConnectionInfo.GetConnectString()
+        If connectString Is Nothing Then
+            MsgBox("通过 名称【" & public_currentDataBaseName & "】获取的DatabaseSchema 获取不到数据库连接串信息 请检查")
+            Return
+        End If
+        '并保存到 Connections中 
+        If Not Connections.Contains(public_currentDataBaseConnection) Then
+            Connections.Add(public_currentDataBaseConnection, connectString)
+            MsgBox("Connections add " & public_currentDataBaseConnection & connectString)
+        End If
+
+
+        public_currentGroupFieldChName = RibbonTabs("数据统计").Groups("功能组1").Items("工具栏1").Items("Combox6").Text
+        If public_currentGroupFieldChName Is Nothing Then
+            MsgBox("分组字段中文名称为空 请检查")
+            Return
+        End If
+        'MsgBox(public_currentGroupFieldName)
+        '从字段中根据分组字段的 中文名称 获取动态列信息(包括 名称 和 值)
+        ListDic = GISQ.DataManager.RuleConfigHelper.Dictionaries 'TBD ListDic 已经有值 不需要内容
+        Dim currentGroupFieldRelationDic As GISQ.DataManager.Dictionary
+
+        For Each dic As GISQ.DataManager.Dictionary In ListDic
+            If dic.DictName = public_currentGroupFieldChName Then
+                currentGroupFieldRelationDic = dic
+            End If
+        Next
+        If currentGroupFieldRelationDic Is Nothing OrElse currentGroupFieldRelationDic.CodeNames.Count = 0 Then
+            MsgBox("分组字段【" & public_currentGroupFieldChName & "】没有获取到关联的数据字典项 不能进行统计" & vbCrLf & "分组字段需要获取到关联的数据字典项才能统计 请检查关联的数据字典项配置")
+            Return
+        End If
+        If currentGroupFieldRelationDic.CodeNames.Count = 0 Then
+            MsgBox("分组字段【" & public_currentGroupFieldChName & "】关联的数据字典项个数为0 不能进行统计" & vbCrLf & "分组字段需要有关联的数据字典项才能统计 请检查关联的数据字典项配置")
+            Return
+        End If
+        Dim pivotNames As String '行转列的sql 语句段
+        '加入 Where判断 字典中重复的 Code 只加入一次
+        Dim pivotNameList As List(Of String) = New List(Of String)()
+        For Each codeName As GISQ.DataManager.CodeName In currentGroupFieldRelationDic.CodeNames
+            If Not pivotNameList.Contains(codeName.Code) Then
+                pivotNames &= "'" & codeName.Code & "'""" & codeName.Code & "_" & codeName.Code & ""","
+                'pivotNames &= "'" & codeName.Code & "'""" & codeName.Name & "_" & codeName.Code & ""","
+            End If
+        Next
+
+        pivotNames = pivotNames.TrimEnd(","c)
+        ' output.show(pivotNames)
+
+        'TBD xzqbmFieldENName 固定为 qxdm
+        Dim groupFieldExpression As String
+        Dim xzqbmFieldENName As String = "qxdm" ' 行政区编码信息字段
+        Dim xzqbmGroupExpression As String = "qxdm" '行政区编码 分组 表达式
+        groupFieldExpression = public_currentGroupFieldName
+        ' 分组方式 生产环境 直接用 分组字段名  不需要截取前两位  比如不需要 substr(dlbm, 1, 2)； 
+        '       开发环境 地类编码 字段 分组先用 substr(dlbm, 1, 2)
+        If public_currentLayerSchemaName.ToLower() = "dltb" And public_currentGroupFieldName.ToLower() = "dlbm" Then
+            groupFieldExpression = "substr(dlbm, 1, 2)"
+        End If
+        xzqbmGroupExpression = xzqbmFieldENName
+        If xzqbmGroupExpression Is Nothing Then
+            MsgBox("行政区分组表达式【" & xzqbmGroupExpression & "】为空 请检查")
+            Return
+        End If
+        If xzqbmFieldENName Is Nothing Then
+            MsgBox("行政区字段【" & xzqbmFieldENName & "】为空 请检查")
+            Return
+        End If
+        If groupFieldExpression Is Nothing Then
+            MsgBox("行政区分组表达式【" & groupFieldExpression & "】为空 请检查")
+            Return
+        End If
+        If xzqbmFieldENName Is Nothing Then
+            MsgBox("行政区字段【" & xzqbmFieldENName & "】为空 请检查")
+            Return
+        End If
+        ' 0 xzqbmGroupExpression  1 xzqbmFieldENName 2 groupFieldExpression 3 public_currentGroupFieldName
+        ' 4 totalFieldEnName 5 public_currentLayerSchemaName 6 pivotNames
+        '组装sql 分组统计的sql语句
+        Dim sql As String = "select qxdm as qxmc,tb.* from (select {0} {1},{2} {3}, sum({4}) {4} from {5} where ROWNUM<10000 group by {0}, {2}) pivot (sum({4}) For {3} In ({6})) tb "
+        sql = String.Format(sql, xzqbmGroupExpression, xzqbmFieldENName, groupFieldExpression, public_currentGroupFieldName, public_currentTotalFieldEnName, public_currentLayerSchemaName, pivotNames)
+        'MsgBox(sql)
+        DataTables("表A").Fill(sql, public_currentDataBaseConnection, True)
