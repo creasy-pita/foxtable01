@@ -4,14 +4,17 @@
 '    Public bname As String '表名称 -> public_currentLayerSchemaName
 '   Public fzzdname As String '分组字段名称   -》public_currentGroupFieldChName 
 '   public_currentGroupFieldChName 从 RibbonTabs("数据统计").Groups("功能组1").Items("工具栏5").Items("Combox10").Text
-
 public_currentDatabaseSchema = ds
 public_currentLayerSchemaName = bname
 public_currentGroupFieldName = fzzdname '比如 "地类编码"
 public_currentTotalFieldEnName = tjnrname '比如 "图斑面积:tbmj"
 
-If public_currentGroupFieldName Is Nothing Then
+If String.IsNullOrEmpty(public_currentGroupFieldName) Then
 	MsgBox("分组字段名称为空 请检查")
+	Return
+End If
+If String.IsNullOrEmpty(public_currentTotalFieldEnName) Then
+	MsgBox("统计字段名称为空 请检查")
 	Return
 End If
 If public_currentDatabaseSchema Is Nothing Then
@@ -70,49 +73,15 @@ If currentGroupFieldRelationDic.CodeNames.Count = 0 Then
 	Return
 End If
 
-Dim pivotNames As String '行转列的sql 语句段
-Dim foxtableTotalOnCols As String ' 比如 湿地_00,耕地_01,种植园用地_02
-'加入 Where判断 字典中重复的 Code 只加入一次
-Dim pivotNameList As List(Of String) = New List(Of String)()
-
-Dim names As List(Of GISQ.DataManager.CodeName) = New List(Of GISQ.DataManager.CodeName)()
-For Each codeName As GISQ.DataManager.CodeName In currentGroupFieldRelationDic.CodeNames
-	names = codeName.CodeNames
-	If names Is Nothing Then
-		If Not pivotNameList.Contains(codeName.Code) Then
-			pivotNameList.Add(codeName.Code)
-			pivotNames &= "'" & codeName.Code & "'""" & codeName.Name & "_" & codeName.Code & ""","
-			foxtableTotalOnCols &= codeName.Name & "_" & codeName.Code & ","
-		End If
-	Else
-		For Each name As GISQ.DataManager.CodeName In names
-			output.show(name.Tostring())
-			If Not pivotNameList.Contains(name.Code) Then
-				pivotNameList.Add(name.Code)
-				pivotNames &= "'" & name.Code & "'""" & name.Name & "_" & name.Code & ""","
-				foxtableTotalOnCols &= name.Name & "_" & name.Code & ","
-			End If
-		Next
-	End If
-Next
-
-pivotNames = pivotNames.TrimEnd(","c)
-foxtableTotalOnCols = foxtableTotalOnCols.TrimEnd(","c)
-output.show(public_stasticType)
-public_stasticType = 0
-Dim stasticType As String = public_stasticType
 Dim groupFieldExpression As String
 Dim xzqbmFieldENName As String = public_xzqbmFieldENName ' 行政区编码信息字段
 Dim xzqbmGroupExpression As String = public_xzqbmGroupExpression '行政区编码 分组 表达式
-Dim totalFieldEnName As String = public_currentTotalFieldEnName '先赋值位当前选中的统计字段，如果统计内容位个数 需要后续调整
 Dim qxdmChName = public_qxdmChName
 Dim qxmcChName = public_qxmcChName
 Dim smcChName = public_smcChName
 Dim sjdmName = "djdm"
-Dim stasticCol = 4
-Dim stasticFunctionType As String = "SUM" '统计值的方式  如果统计内容为 个数  则用计数的函数 Count  ;或者使用求和函数 SUM 
-Dim stasticTotalValueFieldName As String = "totalValue" 'sql语句中用于分组产生统计值的对应字段的名称
-groupFieldExpression = public_currentGroupFieldName
+Dim stasticCol = 3
+groupFieldExpression = public_currentGroupFieldName & ""
 'TBD 分组字段的分组表达式 开发环境 生产环境 地类编码 字段 分组先用 substr(dlbm, 1, 2) 后期修改为 不需要截取前两位  比如不需要 substr(dlbm, 1, 2); 
 
 xzqbmGroupExpression = xzqbmFieldENName
@@ -132,78 +101,142 @@ If xzqbmFieldENName Is Nothing Then
 	MsgBox("行政区字段【" & xzqbmFieldENName & "】为空 请检查")
 	Return
 End If
-
 If dwzhbl = 0 Then
 	MsgBox("单位转换比例没有设置 请检查")
 	Return
 End If
-output.show("22")
-' 如果统计内容是 个数 修改一些配置的值
-If stasticType = "0" Then
-	totalFieldEnName = "1"  '即 COUNT(1)中的1
-	stasticFunctionType = "COUNT"
-	dwzhbl = 1 ' 单位转换比例固定为1  即保持原值不用换算
+
+'datayearColName, public_currentGroupFieldChName, sjdmValue, GroupFieldAliasChName
+Dim datayearColName = "datayear"
+Dim sjdmValue = XzqhCode
+Dim GroupFieldAliasChName = "名称"
+Dim currentDataYearTbNameSuffix = "" 'TBD 当前年份时表的后缀 备注:有可能当前年份提前生成到历史表 比如 _2019
+'加载年份
+Dim dataYearDic As Dictionary(Of String, Boolean) = New Dictionary(Of String, Boolean)
+Dim dataYearList As String()
+Dim year As Integer = 0
+Try
+	year = Val(RibbonTabs("数据统计")("功能组3")("ComboYear").Text)
+Catch ex As Exception
+	MsgBox("统计年份请输入4位的年份值")
+	Return
+End Try
+
+
+Dim now As Integer = Format(Date.Now, "yyyy")
+If year > now Or year < 1949 Then
+	MsgBox("统计年份请输入当前年份以前的年份,这样报表会从输入年份到当前年份展示统计值")
+	Return
 Else
-	If String.IsNullOrEmpty(totalFieldEnName) Then
-		MsgBox("分组字段不能为空 请检查")
+	Dim ssc As SqlSugar.SqlSugarClient
+	ssc = FoxtableXZQ.XZQClass.GetSqlSugarClient(dbConnectionInfo)
+	If year <= now Then
+		For i As Integer = year To now
+			Dim TableName As String = public_currentLayerSchemaName
+			If i < now Then
+				TableName = TableName & "_" & i
+			End If
+			dataYearDic.Add(i.ToString(), ssc.DbMaintenance.IsAnyTable(TableName, False))
+		Next
+	End If
+End If
+dataYearList = dataYearDic.Keys.ToArray()
+
+Dim pivotNames As String = "" '数据年份行转列的sql 语句段
+Dim datayearCols As String = ""
+'加入sql年份用于行转列的部分
+For Each dataYear As String In dataYearList
+	If dataYearDic(dataYear) Then
+		pivotNames &= dataYear & " """ & dataYear & ""","
+		datayearCols &= """" & dataYear & ""","
+	End If
+Next
+
+pivotNames = pivotNames.TrimEnd(","c)
+datayearCols = datayearCols.TrimEnd(","c)
+' output.show(pivotNames)
+
+' 0 xzqbmGroupExpression  1 xzqbmFieldENName 2 groupFieldExpression 3 public_currentGroupFieldName
+' 4 totalFieldEnName 5 public_currentLayerSchemaName 6 pivotNames 7 sjdmName 8  datayearColName 
+' 9 public_currentGroupFieldChName 10 sjdmValue 11 GroupFieldAliasChName 12 dwzhbl 13 datayearcols
+'组装sql 分组统计的sql语句
+Dim innerSql As String
+For Each dataYear As String In dataYearList
+	If Not dataYearDic(dataYear) Then
+		Continue For
+	End If
+	Dim dataYearTbNameSuffix = ""
+	If DateTime.Now.Year.ToString() = dataYear Then
+		dataYearTbNameSuffix = currentDataYearTbNameSuffix
+	Else
+		dataYearTbNameSuffix = "_" + dataYear
+	End If
+
+	If String.IsNullOrEmpty(sjdmValue) Then
+		innerSql = innerSql & "select '" & dataYear & "' As {8}, {2} ""{9}"", sum({4}) {4} from {5}" & dataYearTbNameSuffix & " group by {2} "
+	Else
+		innerSql = innerSql & "select '" & dataYear & "' As {8}, {2} ""{9}"", sum({4}) {4} from {5}" & dataYearTbNameSuffix & " where {1} Like '{10}%' group by {2} "
+	End If
+	innerSql = innerSql & " Union All "
+Next
+'TBD 去除 末尾的 Union All
+innerSql = innerSql.Substring(0, innerSql.LastIndexOf("Union All"))
+' 组装完整sql 
+'select  tb."地类编码","地类编码" As "名称",TB."djdm","2017","2018","2019"
+Dim sql = "select tb.""{9}"", ""{9}"" As ""{11}"", {13} from ("
+sql = sql & "Select uniontb.* from ("
+sql = sql & innerSql
+sql = sql & ") uniontb )  pivot (sum({4}*{12}) For {8} In ({6})) tb order by tb.""{9}"""
+sql = String.Format(sql, xzqbmGroupExpression, xzqbmFieldENName, groupFieldExpression, public_currentGroupFieldName, public_currentTotalFieldEnName, public_currentLayerSchemaName, pivotNames, sjdmName, datayearColName, public_currentGroupFieldChName, sjdmValue, GroupFieldAliasChName, dwzhbl, datayearCols)
+'output.show(sql)
+Dim stasticTableName As String = "表A"
+Dim t As Table = Tables(stasticTableName)
+t.Visible = False
+Forms("加载").Open()
+DataTables(stasticTableName).Fill(sql, public_currentDataBaseConnection, True)
+'如果没有数据 而且表A结构中GroupFieldAliasChName 列不存在则视为sql语句执行出错，写入日志并提示用户
+If t.Rows.Count = 0 Then
+	If Not t.Cols.Contains(GroupFieldAliasChName) Then
+		MsgBox("用于统计的sql语句执行出错,请查看C:\sqlquery.txt 保存的sql语句是否可以在plsql等软件上成功执行 ")
+		Output.Logs("操作日志").Add("sql:" & sql)
+		Output.Logs("操作日志").Save("C:\sqlquery.txt", True)
 		Return
 	End If
 End If
 
-' 0 xzqbmGroupExpression  1 xzqbmFieldENName 2 groupFieldExpression 3 public_currentGroupFieldName
-' 4 totalFieldEnName 5 public_currentLayerSchemaName 6 pivotNames 7 dwzhbl 8 qxdmChName 9 qxmcChName 10 smcChName 11 sjdmName
-' 12 stasticTotalValueFieldName 13 stasticFunctionType
-'组装sql 分组统计的sql语句
-Dim sql As String = "select substr(""{8}"",1,4) As ""{11}"",substr(""{8}"",1,4) As ""{10}"", ""{8}"" As ""{9}"",tb.* from (Select {0} ""{8}"",{2} {3}, {13}({4}) {12} from {5} group by {0}, {2}) pivot (sum({12})For {3} In ({6})) tb  ORDER BY tb.""{8}"""
-sql = String.Format(sql, xzqbmGroupExpression, xzqbmFieldENName, groupFieldExpression, public_currentGroupFieldName, totalFieldEnName, public_currentLayerSchemaName, pivotNames, dwzhbl, qxdmChName, qxmcChName, smcChName, sjdmName, stasticTotalValueFieldName, stasticFunctionType)
-output.show(sql)
-Dim stasticTableName As String = "表A"
-Dim t As Table = Tables(stasticTableName)
-MainTable = t
-t.Visible = False
-Forms("加载").Open()
-DataTables(stasticTableName).Fill(sql, public_currentDataBaseConnection, True)
-
-t.Cols(sjdmName).Visible = False
-t.Cols(smcChName).Visible = False
+Dim CodeAndNameDic As Dictionary(Of String, String) = New Dictionary(Of String, String)()
+Dim names As List(Of GISQ.DataManager.CodeName) = New List(Of GISQ.DataManager.CodeName)()
+For Each codeName As GISQ.DataManager.CodeName In currentGroupFieldRelationDic.CodeNames
+	names = codeName.CodeNames
+	If names Is Nothing Then
+		If CodeAndNameDic.ContainsKey(codeName.Code) Then
+			Continue For
+		End If
+		CodeAndNameDic.Add(codeName.Code, codeName.Name)
+	Else
+		For Each name As GISQ.DataManager.CodeName In names
+			If CodeAndNameDic.ContainsKey(name.Code) Then
+				Continue For
+			End If
+			CodeAndNameDic.Add(name.Code, name.Name)
+		Next
+	End If
+Next
 
 For i As Integer = 0 To t.Rows.Count - 1
-	t.Rows(i)(smcChName) = FoxtableXZQ.XZQClass.GetXZQNameByCode(t.Rows(i)(smcChName))
-	t.Rows(i)(qxmcChName) = FoxtableXZQ.XZQClass.GetXZQNameByCode(t.Rows(i)(qxdmChName))
+	'地类名称 列 根据地类编码获取地类名称
+	If CodeAndNameDic.ContainsKey(t.Rows(i)(public_currentGroupFieldChName)) Then
+		t.Rows(i)(GroupFieldAliasChName) = CodeAndNameDic(t.Rows(i)(public_currentGroupFieldChName))
+	End If
 	For colIndex As Integer = stasticCol To DataTables(stasticTableName).DataCols.Count - 1
-		t.Rows(i)(colIndex) = t.Rows(i)(colIndex) * dwzhbl
+		t.Rows(i)(colIndex) = Round2(t.Rows(i)(colIndex), 2)
 	Next
 Next
-
-t.GroupAboveData = True '指定分组行位于数据行之上
-t.SubtotalGroups.Clear() '清除原有的分组
-Dim g As Subtotalgroup '定义一个新的分组
-g = New Subtotalgroup
-g.GroupOn = smcChName '分组列为地级市代码
-g.TotalOn = foxtableTotalOnCols '对数量和金额进行统计
-t.SubtotalGroups.Add(g) '加入刚刚定义的分组
-g = New Subtotalgroup
-g.GroupOn = "*" '总计
-g.Caption = "安徽省"
-g.TotalOn = foxtableTotalOnCols '对数量和金额进行统计
-t.SubtotalGroups.Add(g) '加入刚刚定义的分组
-t.Sort = qxdmChName
-t.Subtotal(True) '生成汇总模式
-
-'对非合计行和合计行的统计值 保留2位小数
-Dim r As Row
-For i As Integer = 0 To t.Rows.Count(True) - 1 'Count加上参数True
-	r = t.Rows(i, True) 'Rows也需要加上参数True
-	For colIndex As Integer = stasticCol To DataTables(stasticTableName).DataCols.Count - 1
-		r(colIndex) = Round2(r(colIndex), 2)
-	Next
-Next
-
 DataTables("表A").DataCols.Add("计算", GetType(Double))
-t.Visible = True
-MainTable = t
 Forms("加载").Close()
 If Forms("图表展示").Opened Then
 	Forms("图表展示").Close
 	Forms("图表展示").Open
 End If
+MainTable = t
+t.Visible = True
