@@ -29,13 +29,13 @@ End If
 
 Dim dbConnectionInfo As GISQ.Util.Data.DbConnectionInfo = GISQ.Framework.DbConnectHelper.GetDbConnection(public_currentDataBaseConnection)
 If dbConnectionInfo Is Nothing Then
-	MsgBox("通过传递 名称【" & public_currentDataBaseConnection & "】调用接口GISQ.Framework.DbConnectHelper.GetDbConnection 获取的 数据库连接信息为空 请检查DbConnectionInfo的配置")
+	MsgBox("数据结构中找不到名称为【" & public_currentDataBaseConnection & "】连接信息，请检查！")
 	Return
 End If
 Dim connectString As String = "Provider=OraOLEDB.Oracle.1;" & dbConnectionInfo.GetConnectString()
 
 If connectString Is Nothing Then
-	MsgBox("通过 名称【" & public_currentDataBaseName & "】获取的DatabaseSchema 获取不到数据库连接串信息 请检查")
+	MsgBox("数据结构中名称为【" & public_currentDataBaseName & "】连接信息中数据库连接串信息为空，请检查！")
 	Return
 End If
 
@@ -61,7 +61,7 @@ For Each dic As GISQ.DataManager.Dictionary In ListDic
 	End If
 Next
 
-If currentGroupFieldRelationDic Is Nothing OrElse currentGroupFieldRelationDic.CodeNames.Count = 0 Then
+If currentGroupFieldRelationDic Is Nothing Then
 	MsgBox("分组字段【" & public_currentGroupFieldChName & "】没有获取到关联的数据字典项 不能进行统计" & vbCrLf & "分组字段需要获取到关联的数据字典项才能统计 请检查关联的数据字典项配置")
 	Return
 End If
@@ -69,7 +69,6 @@ If currentGroupFieldRelationDic.CodeNames.Count = 0 Then
 	MsgBox("分组字段【" & public_currentGroupFieldChName & "】关联的数据字典项个数为0 不能进行统计" & vbCrLf & "分组字段需要有关联的数据字典项才能统计 请检查关联的数据字典项配置")
 	Return
 End If
-
 Dim pivotNames As String '行转列的sql 语句段
 Dim foxtableTotalOnCols As String ' 比如 湿地_00,耕地_01,种植园用地_02
 '加入 Where判断 字典中重复的 Code 只加入一次
@@ -86,7 +85,6 @@ For Each codeName As GISQ.DataManager.CodeName In currentGroupFieldRelationDic.C
 		End If
 	Else
 		For Each name As GISQ.DataManager.CodeName In names
-			output.show(name.Tostring())
 			If Not pivotNameList.Contains(name.Code) Then
 				pivotNameList.Add(name.Code)
 				pivotNames &= "'" & name.Code & "'""" & name.Name & "_" & name.Code & ""","
@@ -98,8 +96,7 @@ Next
 
 pivotNames = pivotNames.TrimEnd(","c)
 foxtableTotalOnCols = foxtableTotalOnCols.TrimEnd(","c)
-output.show(public_stasticType)
-public_stasticType = 0
+'public_stasticType = 1
 Dim stasticType As String = public_stasticType
 Dim groupFieldExpression As String
 Dim xzqbmFieldENName As String = public_xzqbmFieldENName ' 行政区编码信息字段
@@ -109,7 +106,7 @@ Dim qxdmChName = public_qxdmChName
 Dim qxmcChName = public_qxmcChName
 Dim smcChName = public_smcChName
 Dim sjdmName = "djdm"
-Dim stasticCol = 4
+Dim stasticColIndex = 4
 Dim stasticFunctionType As String = "SUM" '统计值的方式  如果统计内容为 个数  则用计数的函数 Count  ;或者使用求和函数 SUM 
 Dim stasticTotalValueFieldName As String = "totalValue" 'sql语句中用于分组产生统计值的对应字段的名称
 groupFieldExpression = public_currentGroupFieldName
@@ -137,7 +134,6 @@ If dwzhbl = 0 Then
 	MsgBox("单位转换比例没有设置 请检查")
 	Return
 End If
-output.show("22")
 ' 如果统计内容是 个数 修改一些配置的值
 If stasticType = "0" Then
 	totalFieldEnName = "1"  '即 COUNT(1)中的1
@@ -145,7 +141,7 @@ If stasticType = "0" Then
 	dwzhbl = 1 ' 单位转换比例固定为1  即保持原值不用换算
 Else
 	If String.IsNullOrEmpty(totalFieldEnName) Then
-		MsgBox("分组字段不能为空 请检查")
+		MsgBox("统计内容不能为空 请检查")
 		Return
 	End If
 End If
@@ -170,7 +166,7 @@ t.Cols(smcChName).Visible = False
 For i As Integer = 0 To t.Rows.Count - 1
 	t.Rows(i)(smcChName) = FoxtableXZQ.XZQClass.GetXZQNameByCode(t.Rows(i)(smcChName))
 	t.Rows(i)(qxmcChName) = FoxtableXZQ.XZQClass.GetXZQNameByCode(t.Rows(i)(qxdmChName))
-	For colIndex As Integer = stasticCol To DataTables(stasticTableName).DataCols.Count - 1
+	For colIndex As Integer = stasticColIndex To DataTables(stasticTableName).DataCols.Count - 1
 		t.Rows(i)(colIndex) = t.Rows(i)(colIndex) * dwzhbl
 	Next
 Next
@@ -189,12 +185,19 @@ g.TotalOn = foxtableTotalOnCols '对数量和金额进行统计
 t.SubtotalGroups.Add(g) '加入刚刚定义的分组
 t.Sort = qxdmChName
 t.Subtotal(True) '生成汇总模式
+'如果合计为0 则删除列
+Dim sumRow As Row = t.Rows(0, True)
+For colIndex As Integer = t.Cols.Count - 1 To stasticColIndex Step -1
+	If sumRow(colIndex) = 0 Then
+		t.Cols.Remove(t.Cols(colIndex).Name)
+	End If
+Next
 
 '对非合计行和合计行的统计值 保留2位小数
 Dim r As Row
 For i As Integer = 0 To t.Rows.Count(True) - 1 'Count加上参数True
 	r = t.Rows(i, True) 'Rows也需要加上参数True
-	For colIndex As Integer = stasticCol To DataTables(stasticTableName).DataCols.Count - 1
+	For colIndex As Integer = stasticColIndex To DataTables(stasticTableName).DataCols.Count - 1
 		r(colIndex) = Round2(r(colIndex), 2)
 	Next
 Next

@@ -32,13 +32,13 @@ End If
 
 Dim dbConnectionInfo As GISQ.Util.Data.DbConnectionInfo = GISQ.Framework.DbConnectHelper.GetDbConnection(public_currentDataBaseConnection)
 If dbConnectionInfo Is Nothing Then
-	MsgBox("通过传递 名称【" & public_currentDataBaseConnection & "】调用接口GISQ.Framework.DbConnectHelper.GetDbConnection 获取的 数据库连接信息为空 请检查DbConnectionInfo的配置")
+	MsgBox("数据结构中找不到名称为【" & public_currentDataBaseConnection & "】连接信息，请检查！")
 	Return
 End If
 Dim connectString As String = "Provider=OraOLEDB.Oracle.1;" & dbConnectionInfo.GetConnectString()
 
 If connectString Is Nothing Then
-	MsgBox("通过 名称【" & public_currentDataBaseName & "】获取的DatabaseSchema 获取不到数据库连接串信息 请检查")
+	MsgBox("数据结构中名称为【" & public_currentDataBaseName & "】连接信息中数据库连接串信息为空，请检查！")
 	Return
 End If
 
@@ -105,42 +105,35 @@ If dwzhbl = 0 Then
 	MsgBox("单位转换比例没有设置 请检查")
 	Return
 End If
-
+If String.IsNullOrEmpty(public_currentTotalFieldEnName) Then
+	MsgBox("统计内容不能为空 请检查")
+	Return
+End If
 'datayearColName, public_currentGroupFieldChName, sjdmValue, GroupFieldAliasChName
 Dim datayearColName = "datayear"
 Dim sjdmValue = XzqhCode
 Dim GroupFieldAliasChName = "名称"
 Dim currentDataYearTbNameSuffix = "" 'TBD 当前年份时表的后缀 备注:有可能当前年份提前生成到历史表 比如 _2019
-'加载年份
+'加载年份 
 Dim dataYearDic As Dictionary(Of String, Boolean) = New Dictionary(Of String, Boolean)
 Dim dataYearList As String()
-Dim year As Integer = 0
-Try
-	year = Val(RibbonTabs("数据统计")("功能组3")("ComboYear").Text)
-Catch ex As Exception
-	MsgBox("统计年份请输入4位的年份值")
+If String.IsNullOrEmpty(StartYear) Then
+	MsgBox("请需要进行数据对比的年份")
 	Return
-End Try
-
-
-Dim now As Integer = Format(Date.Now, "yyyy")
-If year > now Or year < 1949 Then
-	MsgBox("统计年份请输入当前年份以前的年份,这样报表会从输入年份到当前年份展示统计值")
-	Return
-Else
-	Dim ssc As SqlSugar.SqlSugarClient
-	ssc = FoxtableXZQ.XZQClass.GetSqlSugarClient(dbConnectionInfo)
-	If year <= now Then
-		For i As Integer = year To now
-			Dim TableName As String = public_currentLayerSchemaName
-			If i < now Then
-				TableName = TableName & "_" & i
-			End If
-			dataYearDic.Add(i.ToString(), ssc.DbMaintenance.IsAnyTable(TableName, False))
-		Next
-	End If
 End If
-dataYearList = dataYearDic.Keys.ToArray()
+dataYearList = StartYear.Split(","c)
+Dim now As Integer = Format(Date.Now, "yyyy")
+Dim ssc As SqlSugar.SqlSugarClient
+ssc = FoxtableXZQ.XZQClass.GetSqlSugarClient(dbConnectionInfo)
+'判断表是否再库里存在
+'判断是否当前年份 是的话 表名直接用 public_currentLayerSchemaName 
+For Each iyear As String In dataYearList
+	Dim TableName As String = public_currentLayerSchemaName & ""
+	If iyear <> now Then
+		TableName = TableName & "_" & iyear
+	End If
+	dataYearDic.Add(iyear, ssc.DbMaintenance.IsAnyTable(TableName, False))
+Next
 
 Dim pivotNames As String = "" '数据年份行转列的sql 语句段
 Dim datayearCols As String = ""
@@ -157,7 +150,7 @@ datayearCols = datayearCols.TrimEnd(","c)
 ' output.show(pivotNames)
 
 ' 0 xzqbmGroupExpression  1 xzqbmFieldENName 2 groupFieldExpression 3 public_currentGroupFieldName
-' 4 totalFieldEnName 5 public_currentLayerSchemaName 6 pivotNames 7 sjdmName 8  datayearColName 
+' 4 public_currentTotalFieldEnName 5 public_currentLayerSchemaName 6 pivotNames 7 sjdmName 8  datayearColName 
 ' 9 public_currentGroupFieldChName 10 sjdmValue 11 GroupFieldAliasChName 12 dwzhbl 13 datayearcols
 '组装sql 分组统计的sql语句
 Dim innerSql As String
@@ -197,9 +190,9 @@ DataTables(stasticTableName).Fill(sql, public_currentDataBaseConnection, True)
 '如果没有数据 而且表A结构中GroupFieldAliasChName 列不存在则视为sql语句执行出错，写入日志并提示用户
 If t.Rows.Count = 0 Then
 	If Not t.Cols.Contains(GroupFieldAliasChName) Then
-		MsgBox("用于统计的sql语句执行出错,请查看C:\sqlquery.txt 保存的sql语句是否可以在plsql等软件上成功执行 ")
+		MsgBox("用于统计的sql语句执行出错,请查看C:\foxtablesqlquery.txt 保存的sql语句是否可以在plsql等软件上成功执行 ")
 		Output.Logs("操作日志").Add("sql:" & sql)
-		Output.Logs("操作日志").Save("C:\sqlquery.txt", True)
+		Output.Logs("操作日志").Save("C:\foxtablesqlquery.txt", True)
 		Return
 	End If
 End If

@@ -31,7 +31,7 @@ Module Module1
     Public dwzhbl As Double '当前选中数据单位和统计单位转化的比例  比如 数据单位 米 统计单位为 千米 则比例值 = 1/1000
 
     Public public_stasticType As String '表示统计内容的方式  值 0 时 按数量统计 1 时 按统计值
-
+    Public StartYear As String ' 表示历史数据对比时选择的年份， 多个年份时会按顺序用逗号隔开
 
 
     Sub Main()
@@ -341,13 +341,13 @@ Module Module1
 
         Dim dbConnectionInfo As GISQ.Util.Data.DbConnectionInfo = GISQ.Framework.DbConnectHelper.GetDbConnection(public_currentDataBaseConnection)
         If dbConnectionInfo Is Nothing Then
-            MsgBox("通过传递 名称【" & public_currentDataBaseConnection & "】调用接口GISQ.Framework.DbConnectHelper.GetDbConnection 获取的 数据库连接信息为空 请检查DbConnectionInfo的配置")
+            MsgBox("数据结构中找不到名称为【" & public_currentDataBaseConnection & "】连接信息，请检查！")
             Return
         End If
         Dim connectString As String = "Provider=OraOLEDB.Oracle.1;" & dbConnectionInfo.GetConnectString()
 
         If connectString Is Nothing Then
-            MsgBox("通过 名称【" & public_currentDataBaseName & "】获取的DatabaseSchema 获取不到数据库连接串信息 请检查")
+            MsgBox("数据结构中名称为【" & public_currentDataBaseName & "】连接信息中数据库连接串信息为空，请检查！")
             Return
         End If
 
@@ -373,7 +373,7 @@ Module Module1
             End If
         Next
 
-        If currentGroupFieldRelationDic Is Nothing OrElse currentGroupFieldRelationDic.CodeNames.Count = 0 Then
+        If currentGroupFieldRelationDic Is Nothing Then
             MsgBox("分组字段【" & public_currentGroupFieldChName & "】没有获取到关联的数据字典项 不能进行统计" & vbCrLf & "分组字段需要获取到关联的数据字典项才能统计 请检查关联的数据字典项配置")
             Return
         End If
@@ -381,7 +381,6 @@ Module Module1
             MsgBox("分组字段【" & public_currentGroupFieldChName & "】关联的数据字典项个数为0 不能进行统计" & vbCrLf & "分组字段需要有关联的数据字典项才能统计 请检查关联的数据字典项配置")
             Return
         End If
-
         Dim pivotNames As String '行转列的sql 语句段
         Dim foxtableTotalOnCols As String ' 比如 湿地_00,耕地_01,种植园用地_02
         '加入 Where判断 字典中重复的 Code 只加入一次
@@ -398,7 +397,6 @@ Module Module1
                 End If
             Else
                 For Each name As GISQ.DataManager.CodeName In names
-                    output.show(name.Tostring())
                     If Not pivotNameList.Contains(name.Code) Then
                         pivotNameList.Add(name.Code)
                         pivotNames &= "'" & name.Code & "'""" & name.Name & "_" & name.Code & ""","
@@ -410,8 +408,7 @@ Module Module1
 
         pivotNames = pivotNames.TrimEnd(","c)
         foxtableTotalOnCols = foxtableTotalOnCols.TrimEnd(","c)
-        output.show(public_stasticType)
-        public_stasticType = 0
+        'public_stasticType = 1
         Dim stasticType As String = public_stasticType
         Dim groupFieldExpression As String
         Dim xzqbmFieldENName As String = public_xzqbmFieldENName ' 行政区编码信息字段
@@ -421,7 +418,7 @@ Module Module1
         Dim qxmcChName = public_qxmcChName
         Dim smcChName = public_smcChName
         Dim sjdmName = "djdm"
-        Dim stasticCol = 4
+        Dim stasticColIndex = 4
         Dim stasticFunctionType As String = "SUM" '统计值的方式  如果统计内容为 个数  则用计数的函数 Count  ;或者使用求和函数 SUM 
         Dim stasticTotalValueFieldName As String = "totalValue" 'sql语句中用于分组产生统计值的对应字段的名称
         groupFieldExpression = public_currentGroupFieldName
@@ -449,7 +446,6 @@ Module Module1
             MsgBox("单位转换比例没有设置 请检查")
             Return
         End If
-        output.show("22")
         ' 如果统计内容是 个数 修改一些配置的值
         If stasticType = "0" Then
             totalFieldEnName = "1"  '即 COUNT(1)中的1
@@ -457,7 +453,7 @@ Module Module1
             dwzhbl = 1 ' 单位转换比例固定为1  即保持原值不用换算
         Else
             If String.IsNullOrEmpty(totalFieldEnName) Then
-                MsgBox("分组字段不能为空 请检查")
+                MsgBox("统计内容不能为空 请检查")
                 Return
             End If
         End If
@@ -468,7 +464,6 @@ Module Module1
         '组装sql 分组统计的sql语句
         Dim sql As String = "select substr(""{8}"",1,4) As ""{11}"",substr(""{8}"",1,4) As ""{10}"", ""{8}"" As ""{9}"",tb.* from (Select {0} ""{8}"",{2} {3}, {13}({4}) {12} from {5} group by {0}, {2}) pivot (sum({12})For {3} In ({6})) tb  ORDER BY tb.""{8}"""
         sql = String.Format(sql, xzqbmGroupExpression, xzqbmFieldENName, groupFieldExpression, public_currentGroupFieldName, totalFieldEnName, public_currentLayerSchemaName, pivotNames, dwzhbl, qxdmChName, qxmcChName, smcChName, sjdmName, stasticTotalValueFieldName, stasticFunctionType)
-        output.show(sql)
         Dim stasticTableName As String = "表A"
         Dim t As Table = Tables(stasticTableName)
         MainTable = t
@@ -482,7 +477,7 @@ Module Module1
         For i As Integer = 0 To t.Rows.Count - 1
             t.Rows(i)(smcChName) = FoxtableXZQ.XZQClass.GetXZQNameByCode(t.Rows(i)(smcChName))
             t.Rows(i)(qxmcChName) = FoxtableXZQ.XZQClass.GetXZQNameByCode(t.Rows(i)(qxdmChName))
-            For colIndex As Integer = stasticCol To DataTables(stasticTableName).DataCols.Count - 1
+            For colIndex As Integer = stasticColIndex To t.Cols.Count - 1
                 t.Rows(i)(colIndex) = t.Rows(i)(colIndex) * dwzhbl
             Next
         Next
@@ -501,12 +496,19 @@ Module Module1
         t.SubtotalGroups.Add(g) '加入刚刚定义的分组
         t.Sort = qxdmChName
         t.Subtotal(True) '生成汇总模式
+        '如果合计为0 则删除列
+        Dim sumRow As Row = t.Rows(0, True)
+        For colIndex As Integer = t.Cols.Count - 1 To stasticColIndex Step -1
+            If sumRow(colIndex) = 0 Then
+                t.Cols.Remove(t.Cols(colIndex).Name)
+            End If
+        Next
 
         '对非合计行和合计行的统计值 保留2位小数
         Dim r As Row
         For i As Integer = 0 To t.Rows.Count(True) - 1 'Count加上参数True
             r = t.Rows(i, True) 'Rows也需要加上参数True
-            For colIndex As Integer = stasticCol To DataTables(stasticTableName).DataCols.Count - 1
+            For colIndex As Integer = stasticColIndex To t.Cols.Count - 1
                 r(colIndex) = Round2(r(colIndex), 2)
             Next
         Next
@@ -526,11 +528,11 @@ Module Module1
         Dim stasticTableName As String = "表A"
         Dim t As Table = Tables(stasticTableName)
         If t Is Nothing Then
-            MsgBox(stasticTableName & "为空，请检查")
+            MsgBox(stasticTableName & "为空,请检查")
             Return
         End If
         If t.Rows.Count = 0 Then
-            MsgBox(stasticTableName & "数据为空，请先统计报表数据")
+            MsgBox(stasticTableName & "数据为空,请先统计报表数据")
             Return
         End If
         '只有一行数据而且  00 位置为空时 表示没有数据
@@ -542,7 +544,7 @@ Module Module1
 
         Dim qxmcString As String
         Dim sjmcString As String
-        Dim lbsString As String
+        Dim lbsStringUnOrdered As String '选中的类别信息（无序）
         Dim qxmcStringList() As String '选中区县名称列表 
         Dim sjmcStringList() As String '选中地级市名称列表 如果区县名称列表不为空则使用区县名称列表画图 
         Dim xzqStringList() As String  'x维度  为行政区
@@ -552,7 +554,7 @@ Module Module1
         Dim CheckedComboCol As WinForm.CheckedComboBox
         CheckedComboCol = Forms("图表展示").Controls("CheckedComboCol")
         output.show(CheckedComboCol.Text)
-        lbsString = CheckedComboCol.Text
+        lbsStringUnOrdered = CheckedComboCol.Text
         Dim ComboShi As WinForm.ComboBox
         ComboShi = Forms("图表展示").Controls("ComboShi")
         output.show(ComboShi.Text)
@@ -566,19 +568,27 @@ Module Module1
             MsgBox("请先选择行政区")
             Return
         End If
-        If String.IsNullOrEmpty(lbsString) Then
+        If String.IsNullOrEmpty(lbsStringUnOrdered) Then
             MsgBox("请先选择分组类别")
             Return
         End If
-
         sjmcStringList = {"合肥市", "阜阳市", "安庆市"}
-        Dim lbStringList As String() = {"耕地_01", "园地_02", "林地_03"} 'Y维度为 分组的类别
         If Not String.IsNullOrEmpty(qxmcString) Then
             qxmcStringList = qxmcString.Split(","c)
         Else
             sjmcStringList = sjmcString.Split(","c)
         End If
-        lbStringList = lbsString.Split(","c)
+        Dim lbStringList As String() = lbsStringUnOrdered.Split(","c) '类别数组 作为图表的Y维度为 比如 "耕地_01", "园地_02", "林地_03"
+        '类别数组 修改成表A 中的顺序
+        lbsStringUnOrdered = lbsStringUnOrdered & ","
+        Dim stasticColIndex = 4 '报表表格中分组统计值字段开始的列位置  
+        Dim lbIndex As Integer = 0
+        For colIndex As Integer = stasticColIndex To t.Cols.Count - 1
+            If lbsStringUnOrdered.Contains(t.Cols(colIndex).Name & ",") Then
+                lbStringList.SetValue(t.Cols(colIndex).Name, lbIndex)
+                lbIndex = lbIndex + 1
+            End If
+        Next
 
         If qxmcStringList IsNot Nothing Then
             xzqStringList = qxmcStringList
@@ -621,12 +631,10 @@ Module Module1
         Chart = Forms("图表展示").Controls("Chart1") ' 引用窗口中的图表
         Chart.SeriesList.Clear() '清除图表原来的图系
         Chart.LegendVisible = True '显示图例
-
         Dim sum As Double = 0
         For colIndex As Integer = 0 To valueDeList.GetLength(1) - 1
             sum = sum + valueDeList(0, colIndex)
         Next
-
         Chart.AxisX.ClearValueLabel()
         If chartType = "饼状图" Then
             Chart.VisualEffect = True '加上这一行,让你的图表更漂亮
@@ -649,12 +657,11 @@ Module Module1
                 Chart.AxisX.SetValueLabel(xzqIndex, xzqStringList(xzqIndex)) 'x轴指定字符表示
             Next
             Chart.AxisY.Text = RibbonTabs("数据统计")("功能组2")("统计单位").Text 'x轴指定字符表示
-
             For Each lb As String In lbStringList
                 Series = Chart.SeriesList.Add() '增加一个图系
                 Series.Length = xzqStringList.Length
                 Series.TooltipText = "X = {#XVAL}, Y = {#YVAL}"
-                Series.Text = lb.Substring(0, lb.LastIndexOf("_")) '截取去除下划线及编码部分
+                Series.Text = lb
                 For xzqIndex As Integer = 0 To xzqStringList.Count - 1
                     Series.X(xzqIndex) = xzqIndex
                     Series.Y(xzqIndex) = valueDeList(xzqDic(xzqStringList(xzqIndex)), lbDic(lb))
@@ -700,6 +707,17 @@ Module Module1
             r("keep4") = Round2(r("keep4"), 4)
             r("oldnum") = Round2(r("oldnum"), 5)
         Next
+        Dim stasticColIndex As Integer = 1
+        '如果合计为12.9 则删除列
+        Dim sumRow As Row = t.Rows(0, True)
+        For colIndex As Integer = t.Cols.Count - 1 To stasticColIndex Step -1
+            output.show(sumRow(colIndex))
+            If sumRow(colIndex) = 12.9 Then
+                't.Cols(colIndex).Visible = False
+                t.Cols.Remove(t.Cols(colIndex).Name)
+            End If
+        Next
+
     End Sub
 
     Sub doHistStastic()
@@ -737,13 +755,13 @@ Module Module1
 
         Dim dbConnectionInfo As GISQ.Util.Data.DbConnectionInfo = GISQ.Framework.DbConnectHelper.GetDbConnection(public_currentDataBaseConnection)
         If dbConnectionInfo Is Nothing Then
-            MsgBox("通过传递 名称【" & public_currentDataBaseConnection & "】调用接口GISQ.Framework.DbConnectHelper.GetDbConnection 获取的 数据库连接信息为空 请检查DbConnectionInfo的配置")
+            MsgBox("数据结构中找不到名称为【" & public_currentDataBaseConnection & "】连接信息，请检查！")
             Return
         End If
         Dim connectString As String = "Provider=OraOLEDB.Oracle.1;" & dbConnectionInfo.GetConnectString()
 
         If connectString Is Nothing Then
-            MsgBox("通过 名称【" & public_currentDataBaseName & "】获取的DatabaseSchema 获取不到数据库连接串信息 请检查")
+            MsgBox("数据结构中名称为【" & public_currentDataBaseName & "】连接信息中数据库连接串信息为空，请检查！")
             Return
         End If
 
@@ -810,42 +828,35 @@ Module Module1
             MsgBox("单位转换比例没有设置 请检查")
             Return
         End If
-
+        If String.IsNullOrEmpty(public_currentTotalFieldEnName) Then
+            MsgBox("统计内容不能为空 请检查")
+            Return
+        End If
         'datayearColName, public_currentGroupFieldChName, sjdmValue, GroupFieldAliasChName
         Dim datayearColName = "datayear"
         Dim sjdmValue = XzqhCode
         Dim GroupFieldAliasChName = "名称"
         Dim currentDataYearTbNameSuffix = "" 'TBD 当前年份时表的后缀 备注:有可能当前年份提前生成到历史表 比如 _2019
-        '加载年份
+        '加载年份 
         Dim dataYearDic As Dictionary(Of String, Boolean) = New Dictionary(Of String, Boolean)
         Dim dataYearList As String()
-        Dim year As Integer = 0
-        Try
-            year = Val(RibbonTabs("数据统计")("功能组3")("ComboYear").Text)
-        Catch ex As Exception
-            MsgBox("统计年份请输入4位的年份值")
+        If String.IsNullOrEmpty(StartYear) Then
+            MsgBox("请需要进行数据对比的年份")
             Return
-        End Try
-
-
-        Dim now As Integer = Format(Date.Now, "yyyy")
-        If year > now Or year < 1949 Then
-            MsgBox("统计年份请输入当前年份以前的年份,这样报表会从输入年份到当前年份展示统计值")
-            Return
-        Else
-            Dim ssc As SqlSugar.SqlSugarClient
-            ssc = FoxtableXZQ.XZQClass.GetSqlSugarClient(dbConnectionInfo)
-            If year <= now Then
-                For i As Integer = year To now
-                    Dim TableName As String = public_currentLayerSchemaName
-                    If i < now Then
-                        TableName = TableName & "_" & i
-                    End If
-                    dataYearDic.Add(i.ToString(), ssc.DbMaintenance.IsAnyTable(TableName, False))
-                Next
-            End If
         End If
-        dataYearList = dataYearDic.Keys.ToArray()
+        dataYearList = StartYear.Split(","c)
+        Dim now As Integer = Format(Date.Now, "yyyy")
+        Dim ssc As SqlSugar.SqlSugarClient
+        ssc = FoxtableXZQ.XZQClass.GetSqlSugarClient(dbConnectionInfo)
+        '判断表是否再库里存在
+        '判断是否当前年份 是的话 表名直接用 public_currentLayerSchemaName 
+        For Each iyear As String In dataYearList
+            Dim TableName As String = public_currentLayerSchemaName & ""
+            If iyear <> now Then
+                TableName = TableName & "_" & iyear
+            End If
+            dataYearDic.Add(iyear, ssc.DbMaintenance.IsAnyTable(TableName, False))
+        Next
 
         Dim pivotNames As String = "" '数据年份行转列的sql 语句段
         Dim datayearCols As String = ""
@@ -862,7 +873,7 @@ Module Module1
         ' output.show(pivotNames)
 
         ' 0 xzqbmGroupExpression  1 xzqbmFieldENName 2 groupFieldExpression 3 public_currentGroupFieldName
-        ' 4 totalFieldEnName 5 public_currentLayerSchemaName 6 pivotNames 7 sjdmName 8  datayearColName 
+        ' 4 public_currentTotalFieldEnName 5 public_currentLayerSchemaName 6 pivotNames 7 sjdmName 8  datayearColName 
         ' 9 public_currentGroupFieldChName 10 sjdmValue 11 GroupFieldAliasChName 12 dwzhbl 13 datayearcols
         '组装sql 分组统计的sql语句
         Dim innerSql As String
@@ -884,8 +895,14 @@ Module Module1
             End If
             innerSql = innerSql & " Union All "
         Next
-        'TBD 去除 末尾的 Union All
-        innerSql = innerSql.Substring(0, innerSql.LastIndexOf("Union All"))
+        If String.IsNullOrEmpty(innerSql) Then
+            MsgBox("您当前选择的年份没有数据，可以尝试选择其他年份")
+            Return
+        End If
+        '去除 末尾的 Union All
+        If innerSql.IndexOf("Union All") > 0 Then
+            innerSql = innerSql.Substring(0, innerSql.LastIndexOf("Union All"))
+        End If
         ' 组装完整sql 
         'select  tb."地类编码","地类编码" As "名称",TB."djdm","2017","2018","2019"
         Dim sql = "select tb.""{9}"", ""{9}"" As ""{11}"", {13} from ("
@@ -902,9 +919,9 @@ Module Module1
         '如果没有数据 而且表A结构中GroupFieldAliasChName 列不存在则视为sql语句执行出错，写入日志并提示用户
         If t.Rows.Count = 0 Then
             If Not t.Cols.Contains(GroupFieldAliasChName) Then
-                MsgBox("用于统计的sql语句执行出错,请查看C:\sqlquery.txt 保存的sql语句是否可以在plsql等软件上成功执行 ")
+                MsgBox("用于统计的sql语句执行出错,请查看C:\foxtablesqlquery.txt 保存的sql语句是否可以在plsql等软件上成功执行 ")
                 Output.Logs("操作日志").Add("sql:" & sql)
-                Output.Logs("操作日志").Save("C:\sqlquery.txt", True)
+                Output.Logs("操作日志").Save("C:\foxtablesqlquery.txt", True)
                 Return
             End If
         End If
@@ -967,19 +984,19 @@ Module Module1
 
 
         Dim groupLBString As String
-        Dim datayearsString As String 'x  轴 选中年份列表名称列表 
+        Dim datayearsStringUnOrdered As String 'x  轴 选中年份列表名称列表(无序) 
         Dim groupLBStringList() As String 'y 轴 选中分组类别名称列表 
-        Dim datayearStringList As String()  'x 维度为 分组的类别
+        Dim datayearStringList As String()  'x 维度为 年份
         Dim groupFieldColName As String
         groupFieldColName = t.Cols(1).Name '比如 地类编码
         ' 获取 年份列表 和 分组类别 
         groupLBString = Forms("图表展示").Controls("ComboDLMC").Text '"021, 022"
-        datayearsString = Forms("图表展示").Controls("CheckedComboCol").Text '"2017,2018,2019"
+        datayearsStringUnOrdered = Forms("图表展示").Controls("CheckedComboCol").Text '"2017,2018,2019"
         If String.IsNullOrEmpty(groupLBString) Then
             MsgBox("请先选择分组类别")
             Return
         End If
-        If String.IsNullOrEmpty(datayearsString) Then
+        If String.IsNullOrEmpty(datayearsStringUnOrdered) Then
             MsgBox("请先选择年份列表")
             Return
         End If
@@ -987,8 +1004,18 @@ Module Module1
         If Not String.IsNullOrEmpty(groupLBString) Then
             groupLBStringList = groupLBString.Split(","c)
         End If
-        datayearStringList = datayearsString.Split(","c)
 
+        datayearStringList = datayearsStringUnOrdered.Split(","c)
+        '年份数组 修改成表A 中的顺序
+        datayearsStringUnOrdered = datayearsStringUnOrdered & ","
+        Dim stasticColIndex = 2 '报表表格中年份字段开始的列位置  
+        Dim yearListIndex As Integer = 0
+        For colIndex As Integer = stasticColIndex To t.Cols.Count - 1
+            If datayearsStringUnOrdered.Contains(t.Cols(colIndex).Name & ",") Then
+                datayearStringList.SetValue(t.Cols(colIndex).Name, yearListIndex)
+                yearListIndex = yearListIndex + 1
+            End If
+        Next
 
         Dim valueDeList As Double(,) = New Double(datayearStringList.Length, groupLBStringList.Length) {} '二维数组 记录x,y维度上的统计值
         Dim groupLBDic As Dictionary(Of String, Short) = New Dictionary(Of String, Short)
@@ -1002,6 +1029,7 @@ Module Module1
         i = 0
         ' 字典用于保存类别名称,和对应的位置 后续用于通过名称找到二维数组的下标位置
         Dim dataYearDic As Dictionary(Of String, Short) = New Dictionary(Of String, Short)
+
         For Each datayear As String In datayearStringList
             dataYearDic.Add(datayear, i)
             i = i + 1

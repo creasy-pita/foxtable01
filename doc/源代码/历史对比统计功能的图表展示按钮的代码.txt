@@ -1,0 +1,126 @@
+'从表A获取数值 判断是否已经有统计数据
+Dim stasticTableName As String = "表A"
+Dim t As Table = Tables(stasticTableName)
+If t Is Nothing Then
+	MsgBox(stasticTableName & "为空，请检查")
+	Return
+End If
+If t.Rows.Count = 0 Then
+	MsgBox(stasticTableName & "数据为空，请先统计报表数据")
+	Return
+End If
+'只有一行数据而且  00 位置为空时 表示没有数据
+If t.Rows.Count = 1 And t.Rows(0)(0) = "" Then
+	MsgBox(stasticTableName & "数据为空,请先统计报表数据")
+	Return
+End If
+
+
+Dim groupLBString As String
+Dim datayearsStringUnOrdered As String 'x  轴 选中年份列表名称列表(无序) 
+Dim groupLBStringList() As String 'y 轴 选中分组类别名称列表 
+Dim datayearStringList As String()  'x 维度为 年份
+Dim groupFieldColName As String
+groupFieldColName = t.Cols(1).Name '比如 地类编码
+' 获取 年份列表 和 分组类别 
+groupLBString = Forms("图表展示").Controls("ComboDLMC").Text '"021, 022"
+datayearsStringUnOrdered = Forms("图表展示").Controls("CheckedComboCol").Text '"2017,2018,2019"
+If String.IsNullOrEmpty(groupLBString) Then
+	MsgBox("请先选择分组类别")
+	Return
+End If
+If String.IsNullOrEmpty(datayearsStringUnOrdered) Then
+	MsgBox("请先选择年份列表")
+	Return
+End If
+
+If Not String.IsNullOrEmpty(groupLBString) Then
+	groupLBStringList = groupLBString.Split(","c)
+End If
+
+datayearStringList = datayearsStringUnOrdered.Split(","c)
+'年份数组 修改成表A 中的顺序
+datayearsStringUnOrdered = datayearsStringUnOrdered & ","
+Dim stasticColIndex = 3
+Dim yearListIndex As Integer = 0
+For colIndex As Integer = stasticColIndex To t.Cols.Count - 1
+	If datayearsStringUnOrdered.Contains(t.Cols(colIndex).Name & ",") Then
+		datayearStringList.SetValue(t.Cols(colIndex).Name, yearListIndex)
+		yearListIndex = yearListIndex + 1
+	End If
+Next
+
+Dim valueDeList As Double(,) = New Double(datayearStringList.Length, groupLBStringList.Length) {} '二维数组 记录x,y维度上的统计值
+Dim groupLBDic As Dictionary(Of String, Short) = New Dictionary(Of String, Short)
+
+Dim i = 0
+' 字典用于保存行政区名称,和对应的位置 后续用于通过名称找到二维数组的下标位置
+For Each groupLB As String In groupLBStringList
+	groupLBDic.Add(groupLB, i)
+	i = i + 1
+Next
+i = 0
+' 字典用于保存类别名称,和对应的位置 后续用于通过名称找到二维数组的下标位置
+Dim dataYearDic As Dictionary(Of String, Short) = New Dictionary(Of String, Short)
+For Each datayear As String In datayearStringList
+	dataYearDic.Add(datayear, i)
+	i = i + 1
+Next
+
+For rowIndex As Integer = 0 To t.Rows.Count - 1
+	Dim groupLB = t.Rows(rowIndex)(groupFieldColName)
+
+	If groupLBDic.ContainsKey(groupLB) Then
+		' 先固定获取 lbStringList(0) 列的值到  二维数组的对用行 列下标下  
+		For Each datayear As String In datayearStringList
+			valueDeList(dataYearDic(datayear), groupLBDic(groupLB)) = valueDeList(dataYearDic(datayear), groupLBDic(groupLB)) + t.Rows(rowIndex)(datayear)
+		Next
+	End If
+Next
+Dim chartType = "柱状图" 'Forms("图表展示").Controls("ComboBox1").Text '"饼状图"
+Dim Chart As WinForm.Chart '定义一个图表变量
+Dim Series As WinForm.ChartSeries '定义一个图系变量
+Chart = Forms("图表展示").Controls("Chart1") ' 引用窗口中的图表
+Chart.SeriesList.Clear() '清除图表原来的图系
+Chart.LegendVisible = True '显示图例
+Chart.AxisX.ClearValueLabel()
+If chartType = "饼状图" Then
+	Dim sum As Double = 0
+	'遍历 二维 （即列向）
+	For rowIndex As Integer = 0 To valueDeList.GetLength(0) - 1
+		sum = sum + valueDeList(rowIndex, 0)
+	Next
+	Chart.VisualEffect = True '加上这一行,让你的图表更漂亮
+	Chart.ChartType = ChartTypeEnum.Pie '图表1类型改为Bar(条形)
+	For Each datayear As String In datayearStringList
+		Series = Chart.SeriesList.Add() '增加一个图系
+		Series.Length = 1 '一个系列只能包括一个值
+		Series.Text = datayear & groupLBStringList(0) & "(" & valueDeList(dataYearDic(datayear), 0) & ")" '设置图系的标题
+		Series.DataLabelText = Math.Round(valueDeList(dataYearDic(datayear), 0) * 100 / sum, 2) & "%" '计算百分比
+		Series.Y(0) = valueDeList(dataYearDic(datayear), 0) '指定值
+
+	Next
+	Chart.LegendCompass = CompassEnum.East '图列显示在东方(右方)
+
+Else
+
+	Chart.ChartType = ChartTypeEnum.XYPlot
+
+	For datayearIndex As Integer = 0 To datayearStringList.Count - 1
+		Chart.AxisX.SetValueLabel(datayearIndex, datayearStringList(datayearIndex)) 'x轴指定字符表示
+	Next
+	Chart.AxisY.Text = RibbonTabs("数据统计")("功能组2")("统计单位").Text 'x轴指定字符表示
+
+	For Each groupLB As String In groupLBStringList
+		Series = Chart.SeriesList.Add() '增加一个图系
+		Series.Length = datayearStringList.Length
+		Series.TooltipText = "X = {#XVAL}, Y = {#YVAL}"
+		Series.Text = groupLB
+		For datayearIndex As Integer = 0 To datayearStringList.Count - 1
+			Series.X(datayearIndex) = datayearIndex
+			Series.Y(datayearIndex) = valueDeList(dataYearDic(datayearStringList(datayearIndex)), groupLBDic(groupLB))
+		Next
+	Next
+
+	Chart.AxisX.AnnoWithLabels = True
+End If
